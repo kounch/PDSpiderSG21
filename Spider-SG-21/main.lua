@@ -15,8 +15,10 @@ gfx.setBackgroundColor(playdate.graphics.kColorWhite)
 local colonsSprite = nil
 local timeSprites = {}
 local playerSprite = nil
+local spiderSprites = {}
 local bg = false
 local playerId = 1
+local spiderIds = {4, 4, 4, 4, 4, 1}
 
 print("Loading data...")
 local positionsFile = playdate.file.open("positions.json")
@@ -24,12 +26,18 @@ assert(positionsFile)
 local positionsTable = json.decodeFile(positionsFile)
 assert(positionsTable)
 local playerPositions = positionsTable.playerPositions
+local spiderPositions = positionsTable.spiderPositions
+local spiderMoves = positionsTable.spiderMoves
+local spiderTurn = 1
+local spiderDelay = 300
 
 print ("Loading assets...")
 local digitTable = gfx.imagetable.new("Images/digits")
 assert(digitTable)
 local playerTable = gfx.imagetable.new("Images/player")
 assert(playerTable)
+local spiderTable = gfx.imagetable.new("Images/spider")
+assert(spiderTable)
 local backgroundImage = gfx.image.new("Images/bg")
 assert(backgroundImage)
 
@@ -53,6 +61,21 @@ function myGameSetUp()
     playerSprite = gfx.sprite.new(playerTable:getImage(playerPositions[playerId].id))
     playerSprite:moveTo(playerPositions[playerId].x, playerPositions[playerId].y)
     playerSprite:add()
+
+    for i = 1,6
+    do
+        spiderSprites[i] = {}
+        for j = 1,spiderIds[i]
+        do
+            spiderSprites[i][j] = gfx.sprite.new(spiderTable:getImage(spiderPositions[i][j].id))
+            spiderSprites[i][j]:moveTo(spiderPositions[i][j].x, spiderPositions[i][j].y)
+            spiderSprites[i][j]:add()
+            spiderSprites[i][j]:setVisible(false)
+        end
+        spiderIds[i] = 0
+    end
+    spiderIds[6] = 1
+    spiderSprites[6][1]:setVisible(true)
 
     gfx.sprite.setBackgroundDrawingCallback(
         function( x, y, width, height )
@@ -82,11 +105,47 @@ function displayTime()
     end
 end
 
+function updateSpider()
+    spiderIds[spiderMoves[spiderTurn]] += 1
+    if spiderIds[spiderMoves[spiderTurn]] > 4 then
+        spiderIds[spiderMoves[spiderTurn]] = 0
+    end
+
+    for i = 1,5
+    do
+        for j = 1,4
+        do
+            if j > spiderIds[i] then
+                spiderSprites[i][j]:setVisible(false)
+            else
+                spiderSprites[i][j]:setVisible(true)
+            end
+        end
+    end
+end
+
 print("Game Init...")
 myGameSetUp()
 
 print("Main loop...")
+local doTurn = true
 function playdate.update()
+    if doTurn then
+        doTurn = false
+        playdate.timer.performAfterDelay(spiderDelay, 
+            function()
+                updateSpider()
+                spiderTurn += 1
+                local testSize = table.getsize(spiderMoves) - 3
+                if spiderTurn>testSize then
+                    spiderTurn = 1
+                end
+                doTurn = true
+            end
+        )
+    end
+        
+
     if playdate.buttonIsPressed(playdate.kButtonB) then
         if not bg then
             backgroundImage:load( "Images/fg" )
@@ -112,7 +171,7 @@ function playdate.update()
     end
 
     if playdate.buttonJustPressed(playdate.kButtonLeft) then
-        if playerId > 2 then
+        if playerId > 1 then
             playerId -= 1
             moved = true
         end
