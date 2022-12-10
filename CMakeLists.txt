@@ -40,6 +40,7 @@ add_custom_target("Spider-SG-21" ALL
 add_custom_command(OUTPUT ${OUTPUT_DIR}/${PROJECT_NAME}.pdx
     DEPENDS ${PROJECT_SOURCE_DIR}/${PROJECT_NAME}/main.lua
     COMMAND ${PDC_BINARY} -k ${PROJECT_SOURCE_DIR}/${PROJECT_NAME} ${OUTPUT_DIR}/${PROJECT_NAME}.pdx
+    COMMAND ${CMAKE_COMMAND} -E copy ${PROJECT_SOURCE_DIR}/${PROJECT_NAME}/positions.json ${OUTPUT_DIR}/${PROJECT_NAME}.pdx
     COMMENT "Build playdate Binary"
     )
 
