@@ -1,3 +1,8 @@
+-- Copyright (c) 2022, kounch
+-- All rights reserved.
+--
+-- SPDX-License-Identifier: BSD-2-Clause
+
 import "CoreLibs/object"
 import "CoreLibs/graphics"
 import "CoreLibs/sprites"
