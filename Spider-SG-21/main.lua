@@ -16,9 +16,11 @@ local colonsSprite = nil
 local digitSprites = {}
 local labelSprites = {}
 local playerSprite = nil
+local liveSprites = {}
 local spiderSprites = {}
 local bg = false
 local playerId = 1
+local lives = 0
 local spiderIds = {4, 4, 4, 4, 4, 1}
 
 print("Loading data...")
@@ -76,6 +78,14 @@ function myGameSetUp()
     playerSprite = gfx.sprite.new(playerTable:getImage(playerPositions[playerId].id))
     playerSprite:moveTo(playerPositions[playerId].x, playerPositions[playerId].y)
     playerSprite:add()
+
+    for i = 1,2
+    do
+        liveSprites[i] = gfx.sprite.new(playerTable:getImage(playerPositions[6+i].id))
+        liveSprites[i]:moveTo(playerPositions[6+i].x, playerPositions[6+i].y)
+        liveSprites[i]:add()
+        liveSprites[i]:setVisible(false)
+    end
 
     for i = 1,6
     do
@@ -149,32 +159,62 @@ function displayScore()
     end
 end
 
+local pauseGame = false
 function updateSpider()
-    for i = 1,5
-    do
-        for j = 1,4
+    if not pauseGame then
+        for i = 1,5
         do
-            if j > spiderIds[i] then
-                spiderSprites[i][j]:setVisible(false)
-            else
-                spiderSprites[i][j]:setVisible(true)
+            for j = 1,4
+            do
+                if j>spiderIds[i] then
+                    spiderSprites[i][j]:setVisible(false)
+                else
+                    spiderSprites[i][j]:setVisible(true)
+                end
+            end
+            if i==playerId-1 then
+                if spiderIds[i]==4 then
+                    print("Killed")
+                    pauseGame = true
+                    playdate.timer.performAfterDelay(1000,
+                        function()
+                            playerId = 1
+                            movePlayer()
+                            if lives>0 then
+                                liveSprites[3-lives]:setVisible(false)
+                            end
+                            lives-=1
+                            if lives<0 then
+                                gameOver()
+                            end
+                            pauseGame = false
+                        end
+                    )
+                end
             end
         end
-    end
 
-    if spiderMoves[spiderTurn] > 0 then
-        spiderIds[spiderMoves[spiderTurn]] += 1
-        if spiderIds[spiderMoves[spiderTurn]] > 4 then
-            spiderIds[spiderMoves[spiderTurn]] = 0
+        if spiderMoves[spiderTurn] > 0 then
+            spiderIds[spiderMoves[spiderTurn]] += 1
+            if spiderIds[spiderMoves[spiderTurn]] > 4 then
+                spiderIds[spiderMoves[spiderTurn]] = 0
+            end
         end
     end
 end
 
 local gameStatus = 0  -- 0-Menu, 1-Game A, 2-Game B
 local endGame = true
+local pauseGame = false
 local doTurn = false
 function startGame(gameMode)
     print("Starting new game:" .. gameMode)
+    lives = 2
+    for i = 1,2
+    do
+        liveSprites[i]:setVisible(true)
+    end
+
     playerId = 1
     movePlayer()
 
@@ -187,6 +227,10 @@ function startGame(gameMode)
     spiderMoves = positionsTable.spiderMovesA
     if gameMode>1 then
         spiderMoves = positionsTable.spiderMovesB
+    end
+    for i = 1,3
+    do
+        labelSprites[i]:setVisible(false)
     end
     labelSprites[gameMode]:setVisible(true)
 end
@@ -211,6 +255,27 @@ function resetGame()
     end
 end
 
+function gameOver()
+    print("Game Over!")
+    labelSprites[3]:setVisible(true)
+    gameStatus = 0
+    endGame = true
+
+    playerId = 1
+    movePlayer()
+
+    for i = 1,5
+    do
+        spiderIds[i] = 0
+    end
+    updateSpider()
+
+    for i = 1,2
+    do
+        labelSprites[i]:setVisible(false)
+    end
+end
+
 function movePlayer()
     playerSprite:setImage(playerTable:getImage(playerPositions[playerId].id))
     playerSprite:moveTo(playerPositions[playerId].x, playerPositions[playerId].y)
@@ -221,61 +286,63 @@ myGameSetUp()
 
 print("Main loop...")
 function playdate.update()
-    if doTurn and not endGame then
-        doTurn = false
-        playdate.timer.performAfterDelay(spiderDelay, 
-            function()
-                displayScore()
-                updateSpider()
-                spiderTurn += 1
-                if spiderTurn>#spiderMoves then
-                    spiderTurn = 1
+    if not pauseGame then
+        if doTurn and not endGame then
+            doTurn = false
+            playdate.timer.performAfterDelay(spiderDelay, 
+                function()
+                    displayScore()
+                    updateSpider()
+                    spiderTurn += 1
+                    if spiderTurn>#spiderMoves then
+                        spiderTurn = 1
+                    end
+                    doTurn = true
                 end
-                doTurn = true
-            end
-        )
-    else
-        doTurn = false
-    end
-        
-    if gameStatus==0 then
-        if playdate.buttonIsPressed(playdate.kButtonUp) then
-            if not bg then
-                backgroundImage:load( "Images/fg" )
+            )
+        else
+            doTurn = false
+        end
+            
+        if gameStatus==0 then
+            if playdate.buttonIsPressed(playdate.kButtonUp) then
+                if not bg then
+                    backgroundImage:load( "Images/fg" )
+                    assert(backgroundImage)
+                    gfx.sprite.redrawBackground()
+                    bg = true
+                end
+            elseif playdate.buttonJustPressed(playdate.kButtonA) then
+                startGame(1)
+            elseif playdate.buttonJustPressed(playdate.kButtonB) then
+                startGame(2)
+            elseif bg then
+                backgroundImage:load( "Images/bg" )
                 assert(backgroundImage)
                 gfx.sprite.redrawBackground()
-                bg = true
+                bg = false
+            else
+                displayTime()
             end
-        elseif playdate.buttonJustPressed(playdate.kButtonA) then
-            startGame(1)
-        elseif playdate.buttonJustPressed(playdate.kButtonB) then
-            startGame(2)
-        elseif bg then
-            backgroundImage:load( "Images/bg" )
-            assert(backgroundImage)
-            gfx.sprite.redrawBackground()
-            bg = false
         else
-            displayTime()
-        end
-    else
-        local moved = false
-        if playdate.buttonJustPressed(playdate.kButtonRight) or playdate.buttonJustPressed(playdate.kButtonA) then
-            if playerId < 6 then
-                playerId += 1
-                moved = true
+            local moved = false
+            if playdate.buttonJustPressed(playdate.kButtonRight) or playdate.buttonJustPressed(playdate.kButtonA) then
+                if playerId < 6 then
+                    playerId += 1
+                    moved = true
+                end
             end
-        end
 
-        if playdate.buttonJustPressed(playdate.kButtonLeft) then
-            if playerId > 1 then
-                playerId -= 1
-                moved = true
+            if playdate.buttonJustPressed(playdate.kButtonLeft) then
+                if playerId > 1 then
+                    playerId -= 1
+                    moved = true
+                end
             end
-        end
 
-        if (moved) then
-            movePlayer()
+            if (moved) then
+                movePlayer()
+            end
         end
     end
 
