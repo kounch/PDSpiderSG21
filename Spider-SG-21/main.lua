@@ -119,6 +119,7 @@ function displayTime()
     for i = 1,4
     do
         digitSprites[i]:setImage(digitTable:getImage(timeDigits[i]))
+        digitSprites[i]:setVisible(true)
     end
 
     local isVisible = true
@@ -174,6 +175,9 @@ local endGame = true
 local doTurn = false
 function startGame(gameMode)
     print("Starting new game:" .. gameMode)
+    playerId = 1
+    movePlayer()
+
     gameStatus = gameMode
     score = 0
     endGame = false
@@ -189,20 +193,27 @@ end
 
 function resetGame()
     print("Reset!")
+    gameStatus = 0
+    endGame = true
+
+    playerId = 1
+    movePlayer()
+
     for i = 1,5
     do
         spiderIds[i] = 0
     end
-    spiderTurn = 1
     updateSpider()
 
     for i = 1,3
     do
         labelSprites[i]:setVisible(false)
-        digitSprites[i]:setVisible(true)
     end
-    gameStatus = 0
-    endGame = true
+end
+
+function movePlayer()
+    playerSprite:setImage(playerTable:getImage(playerPositions[playerId].id))
+    playerSprite:moveTo(playerPositions[playerId].x, playerPositions[playerId].y)
 end
 
 print("Game Init...")
@@ -264,8 +275,7 @@ function playdate.update()
         end
 
         if (moved) then
-            playerSprite:setImage(playerTable:getImage(playerPositions[playerId].id))
-            playerSprite:moveTo(playerPositions[playerId].x, playerPositions[playerId].y)
+            movePlayer()
         end
     end
 
