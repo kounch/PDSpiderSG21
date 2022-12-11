@@ -18,6 +18,7 @@ local labelSprites = {}
 local playerSprite = nil
 local liveSprites = {}
 local spiderSprites = {}
+local carSprite = nil
 local bg = false
 local playerId = 1
 local lives = 0
@@ -44,6 +45,8 @@ local playerTable = gfx.imagetable.new("Images/player")
 assert(playerTable)
 local spiderTable = gfx.imagetable.new("Images/spider")
 assert(spiderTable)
+local extraTable = gfx.imagetable.new("Images/extra")
+assert(extraTable)
 local backgroundImage = gfx.image.new("Images/bg")
 assert(backgroundImage)
 
@@ -86,6 +89,11 @@ function myGameSetUp()
         liveSprites[i]:add()
         liveSprites[i]:setVisible(false)
     end
+
+    carSprite = gfx.sprite.new(extraTable:getImage(1))
+    carSprite:moveTo(playerPositions[9].x, playerPositions[9].y)
+    carSprite:add()
+    carSprite:setVisible(false)
 
     for i = 1,6
     do
@@ -210,6 +218,8 @@ local doTurn = false
 function startGame(gameMode)
     print("Starting new game:" .. gameMode)
     lives = 2
+
+    carSprite:setVisible(true)
     for i = 1,2
     do
         liveSprites[i]:setVisible(true)
@@ -236,12 +246,27 @@ function startGame(gameMode)
 end
 
 function resetGame()
-    print("Reset!")
     gameStatus = 0
     endGame = true
+    clearSprites()
+end
 
+function gameOver()
+    gameStatus = 0
+    endGame = true
+    clearSprites()
+    labelSprites[3]:setVisible(true)
+end
+
+function clearSprites()
     playerId = 1
     movePlayer()
+
+    for i = 1,2
+    do
+        liveSprites[i]:setVisible(false)
+    end
+    carSprite:setVisible(false)
 
     for i = 1,5
     do
@@ -250,27 +275,6 @@ function resetGame()
     updateSpider()
 
     for i = 1,3
-    do
-        labelSprites[i]:setVisible(false)
-    end
-end
-
-function gameOver()
-    print("Game Over!")
-    labelSprites[3]:setVisible(true)
-    gameStatus = 0
-    endGame = true
-
-    playerId = 1
-    movePlayer()
-
-    for i = 1,5
-    do
-        spiderIds[i] = 0
-    end
-    updateSpider()
-
-    for i = 1,2
     do
         labelSprites[i]:setVisible(false)
     end
