@@ -17,6 +17,7 @@ local digitSprites = {}
 local labelSprites = {}
 local playerSprite = nil
 local liveSprites = {}
+local boySprites = {}
 local spiderSprites = {}
 local boatSprite = nil
 local carSprite = nil
@@ -108,6 +109,14 @@ function myGameSetUp()
         liveSprites[i]:moveTo(playerPositions[6+i].x, playerPositions[6+i].y)
         liveSprites[i]:add()
         liveSprites[i]:setVisible(false)
+    end
+
+    for i = 1,3
+    do
+        boySprites[i] = gfx.sprite.new(playerTable:getImage(playerPositions[15+i].id))
+        boySprites[i]:moveTo(playerPositions[15+i].x, playerPositions[15+i].y)
+        boySprites[i]:add()
+        boySprites[i]:setVisible(false)
     end
 
     carSprite = gfx.sprite.new(extraTable:getImage(1))
@@ -291,7 +300,7 @@ function gameOver()
     pauseGame = true
     endGame = true
     labelSprites[3]:setVisible(true)
-    playdate.timer.performAfterDelay(5000,
+    playdate.timer.performAfterDelay(4500,
         function()
             gameStatus = 0
             pauseGame = false
