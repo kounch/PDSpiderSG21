@@ -18,6 +18,7 @@ local labelSprites = {}
 local playerSprite = nil
 local liveSprites = {}
 local spiderSprites = {}
+local boatSprite = nil
 local carSprite = nil
 local bg = false
 local playerId = 1
@@ -34,7 +35,14 @@ local spiderPositions = positionsTable.spiderPositions
 local spiderMoves = positionsTable.spiderMovesA
 local spiderTurn = 1
 local spiderDelay = 300
+local spiderAccel = 0
 local score = 0
+local gameStatus = 0  -- 0-Menu, 1-Game A, 2-Game B
+local pauseGame = false
+local endGame = false
+local pauseGame = false
+local doTurn = false
+local doBoat = false
 
 print ("Loading assets...")
 local digitTable = gfx.imagetable.new("Images/digits")
@@ -49,6 +57,13 @@ local extraTable = gfx.imagetable.new("Images/extra")
 assert(extraTable)
 local backgroundImage = gfx.image.new("Images/bg")
 assert(backgroundImage)
+
+local deadSound = playdate.sound.sampleplayer.new("dead")
+local clickSounds = {}
+clickSounds[1] = playdate.sound.sampleplayer.new("click")
+clickSounds[2] = playdate.sound.sampleplayer.new("click3")
+local rescueSound = playdate.sound.sampleplayer.new("rescue")
+local endSound = playdate.sound.sampleplayer.new("gameover")
 
 -- Functions
 function myGameSetUp()
@@ -82,6 +97,11 @@ function myGameSetUp()
     playerSprite:moveTo(playerPositions[playerId].x, playerPositions[playerId].y)
     playerSprite:add()
 
+    deadSprite = gfx.sprite.new(playerTable:getImage(playerPositions[11].id))
+    deadSprite:moveTo(playerPositions[11].x, playerPositions[11].y)
+    deadSprite:add()
+    deadSprite:setVisible(false)
+
     for i = 1,2
     do
         liveSprites[i] = gfx.sprite.new(playerTable:getImage(playerPositions[6+i].id))
@@ -94,6 +114,11 @@ function myGameSetUp()
     carSprite:moveTo(playerPositions[9].x, playerPositions[9].y)
     carSprite:add()
     carSprite:setVisible(false)
+
+    boatSprite = gfx.sprite.new(extraTable:getImage(2))
+    boatSprite:moveTo(playerPositions[10].x, playerPositions[10].y)
+    boatSprite:add()
+    boatSprite:setVisible(false)
 
     for i = 1,6
     do
@@ -160,18 +185,44 @@ function displayScore()
     for i = 1,4
     do
         digitSprites[i]:setVisible(false)
-        if score > 10^(4-i)-2 then
+        if score >= 10^(4-i) or i==4 then
             digitSprites[i]:setImage(digitTable:getImage(scoreDigits[i] + 1))
             digitSprites[i]:setVisible(true)
         end
     end
 end
 
-local pauseGame = false
 function updateSpider()
-    if not pauseGame then
+    if not pauseGame and not endGame then
         for i = 1,5
         do
+            if i==playerId-1 then
+                if spiderSprites[i][4]:isVisible() then
+                    print("Killed")
+                    pauseGame = true
+                    deadSound:play()
+                    deadSprite:setImage(playerTable:getImage(playerPositions[playerId+9].id))
+                    deadSprite:moveTo(playerPositions[playerId+9].x, playerPositions[playerId+9].y)
+                    deadSprite:setVisible(true)
+                    playerId = 1
+                    if lives>0 then
+                        liveSprites[3-lives]:setVisible(false)
+                    end
+                    lives-=1
+                    playdate.timer.performAfterDelay(1000,
+                        function()
+                            deadSprite:setVisible(false)
+                            if lives<0 then
+                                gameOver()
+                            else
+                                playerId = 1
+                                movePlayer()
+                                pauseGame = false
+                            end
+                        end
+                    )
+                end
+            end
             for j = 1,4
             do
                 if j>spiderIds[i] then
@@ -180,29 +231,13 @@ function updateSpider()
                     spiderSprites[i][j]:setVisible(true)
                 end
             end
-            if i==playerId-1 then
-                if spiderIds[i]==4 then
-                    print("Killed")
-                    pauseGame = true
-                    playdate.timer.performAfterDelay(1000,
-                        function()
-                            playerId = 1
-                            movePlayer()
-                            if lives>0 then
-                                liveSprites[3-lives]:setVisible(false)
-                            end
-                            lives-=1
-                            if lives<0 then
-                                gameOver()
-                            end
-                            pauseGame = false
-                        end
-                    )
-                end
-            end
         end
 
+        local r = math.random(1,5)
         if spiderMoves[spiderTurn] > 0 then
+            if r<3 then
+                clickSounds[r]:play()
+            end
             spiderIds[spiderMoves[spiderTurn]] += 1
             if spiderIds[spiderMoves[spiderTurn]] > 4 then
                 spiderIds[spiderMoves[spiderTurn]] = 0
@@ -211,19 +246,17 @@ function updateSpider()
     end
 end
 
-local gameStatus = 0  -- 0-Menu, 1-Game A, 2-Game B
-local endGame = true
-local pauseGame = false
-local doTurn = false
 function startGame(gameMode)
     print("Starting new game:" .. gameMode)
     lives = 2
+    doBoat = true
 
-    carSprite:setVisible(true)
     for i = 1,2
     do
         liveSprites[i]:setVisible(true)
     end
+    carSprite:setVisible(true)
+    boatSprite:setVisible(false)
 
     playerId = 1
     movePlayer()
@@ -233,7 +266,7 @@ function startGame(gameMode)
     endGame = false
     doTurn = true
     spiderTurn = 1
-    spiderDelay = 30 + (2 - gameMode) * 220
+    spiderDelay = 80 + (2 - gameMode) * 170
     spiderMoves = positionsTable.spiderMovesA
     if gameMode>1 then
         spiderMoves = positionsTable.spiderMovesB
@@ -246,16 +279,26 @@ function startGame(gameMode)
 end
 
 function resetGame()
+    score = 0
     gameStatus = 0
-    endGame = true
+    pauseGame = false
     clearSprites()
+    endGame = false
 end
 
 function gameOver()
-    gameStatus = 0
+    endSound:play()
+    pauseGame = true
     endGame = true
-    clearSprites()
     labelSprites[3]:setVisible(true)
+    playdate.timer.performAfterDelay(5000,
+        function()
+            gameStatus = 0
+            pauseGame = false
+            clearSprites()
+            labelSprites[3]:setVisible(true)
+        end
+    )
 end
 
 function clearSprites()
@@ -266,7 +309,9 @@ function clearSprites()
     do
         liveSprites[i]:setVisible(false)
     end
+    deadSprite:setVisible(false)
     carSprite:setVisible(false)
+    boatSprite:setVisible(false)
 
     for i = 1,5
     do
@@ -291,9 +336,24 @@ myGameSetUp()
 print("Main loop...")
 function playdate.update()
     if not pauseGame then
+        if doBoat and not endGame then
+            doBoat = false
+            playdate.timer.performAfterDelay(7000, 
+                function()
+                    if gameStatus>0 then
+                        doBoat = true
+                        local showBoat = not boatSprite:isVisible()
+                        boatSprite:setVisible(showBoat)
+                    end
+                end
+            )
+        end
+
         if doTurn and not endGame then
             doTurn = false
-            playdate.timer.performAfterDelay(spiderDelay, 
+            local scoreDelay = spiderDelay//(1+score/150)
+            --print("Delay: ".. scoreDelay)
+            playdate.timer.performAfterDelay(scoreDelay, 
                 function()
                     displayScore()
                     updateSpider()
@@ -309,7 +369,9 @@ function playdate.update()
         end
             
         if gameStatus==0 then
-            if playdate.buttonIsPressed(playdate.kButtonUp) then
+            if playdate.buttonJustPressed(playdate.kButtonDown) then
+                endGame = not endGame
+            elseif playdate.buttonIsPressed(playdate.kButtonUp) then
                 if not bg then
                     backgroundImage:load( "Images/fg" )
                     assert(backgroundImage)
@@ -325,6 +387,10 @@ function playdate.update()
                 assert(backgroundImage)
                 gfx.sprite.redrawBackground()
                 bg = false
+            end
+
+            if endGame then
+                displayScore()
             else
                 displayTime()
             end
@@ -334,6 +400,9 @@ function playdate.update()
                 if playerId < 6 then
                     playerId += 1
                     moved = true
+                elseif boatSprite:isVisible() then
+                    rescueSound:play()
+                    score+=1
                 end
             end
 
