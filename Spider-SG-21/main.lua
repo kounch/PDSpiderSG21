@@ -9,7 +9,7 @@ import "CoreLibs/sprites"
 import "CoreLibs/timer"
 
 local gfx <const> = playdate.graphics
-gfx.setBackgroundColor(playdate.graphics.kColorWhite)
+gfx.setBackgroundColor(gfx.kColorWhite)
 
 -- Global vars
 local colonsSprite = nil
@@ -39,7 +39,8 @@ local waitDelay = 100
 local spiderDelay = 300
 local spiderAccel = 0
 local score = 0
-local gameStatus = 0  -- 0-Menu, 1-Game A, 2-Game B
+local gameStatus = 0  -- 0-Menu, 1-Game A, 2-Game B, 3-Credits
+local oldGameStatus = 0
 local pauseGame = false
 local endGame = false
 local pauseGame = false
@@ -156,7 +157,12 @@ function setPlaydateMenu()
     local listMenuItems = sysMenu:getMenuItems()
     sysMenu:removeAllMenuItems()
     local menuItem, error = sysMenu:addMenuItem("Reset", resetGame)
-    local menuItem, error = sysMenu:addMenuItem("Credits", resetGame)
+    local menuItem, error = sysMenu:addMenuItem("Credits",
+        function()
+            oldGameStatus = gameStatus
+            gameStatus = 3
+        end
+    )
 end
 
 function displayTime()
@@ -214,6 +220,10 @@ function updateSpider()
                     spiderIds[spiderMoves[spiderTurn]] = 0
                 end
             end
+        end
+        spiderTurn += 1
+        if spiderTurn>#spiderMoves then
+            spiderTurn = 1
         end
     end
 end
@@ -378,11 +388,28 @@ function waitAndPush(counter)
     end
 end
 
+function showCredits()
+    gameStatus = 3
+    gfx.setLineWidth(3)
+    local sysFont = gfx.getSystemFont(gfx.font.kVariantBold)
+
+    local bgImage = gfx.image.new("Images/fg")
+    bgImage:draw(0,0)
+    playdate.graphics.setColor(playdate.graphics.kColorWhite)
+    gfx.fillRoundRect(30, 30, 340, 180, 5)
+    playdate.graphics.setColor(playdate.graphics.kColorBlack)
+    gfx.drawRoundRect(30, 30, 340, 180, 5)
+
+    sysFont:drawText("Spider SG-21 for Playdate", 50, 50, kTextAlignment.center)
+    local sysFont = gfx.getSystemFont(gfx.font.kVariantNormal)
+    sysFont:drawText("(C) Kounch 2022", 50, 90, kTextAlignment.center)
+end
+
 print("Game Init...")
 myGameSetUp()
 
 print("Main loop...")
-function playdate.update()  
+function playdate.update()
     if gameStatus==0 then
         if playdate.buttonJustPressed(playdate.kButtonDown) then
             endGame = not endGame
@@ -409,11 +436,11 @@ function playdate.update()
         else
             displayTime()
         end
-    else
+    elseif gameStatus<3 then
         if not pauseGame then
             if doBoat then
                 doBoat = false
-                playdate.timer.performAfterDelay(7000, 
+                playdate.timer.performAfterDelay(7000,
                     function()
                         if gameStatus>0 then
                             doBoat = true
@@ -423,18 +450,14 @@ function playdate.update()
                     end
                 )
             end
-    
+
             if doTurn then
                 doTurn = false
                 local scoreDelay = spiderDelay//(1+score/130)
-                playdate.timer.performAfterDelay(scoreDelay, 
+                playdate.timer.performAfterDelay(scoreDelay,
                     function()
                         displayScore()
                         updateSpider()
-                        spiderTurn += 1
-                        if spiderTurn>#spiderMoves then
-                            spiderTurn = 1
-                        end
                         doTurn = true
                     end
                 )
@@ -482,8 +505,15 @@ function playdate.update()
                 playdate.timer.performAfterDelay(1500, killPlayer)
             end
         end
+    else
+        showCredits()
+        if playdate.buttonJustPressed(playdate.kButtonA) then
+            gameStatus = oldGameStatus
+        end
     end
 
-    gfx.sprite.update()
-    playdate.timer.updateTimers()
+    if gameStatus<3 then
+        gfx.sprite.update()
+        playdate.timer.updateTimers()
+    end
 end
