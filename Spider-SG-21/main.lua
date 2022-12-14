@@ -390,19 +390,23 @@ end
 
 function showCredits()
     gameStatus = 3
-    gfx.setLineWidth(3)
-    local sysFont = gfx.getSystemFont(gfx.font.kVariantBold)
 
     local bgImage = gfx.image.new("Images/fg")
     bgImage:draw(0,0)
-    playdate.graphics.setColor(playdate.graphics.kColorWhite)
-    gfx.fillRoundRect(30, 30, 340, 180, 5)
-    playdate.graphics.setColor(playdate.graphics.kColorBlack)
-    gfx.drawRoundRect(30, 30, 340, 180, 5)
 
-    sysFont:drawText("Spider SG-21 for Playdate", 50, 50, kTextAlignment.center)
-    local sysFont = gfx.getSystemFont(gfx.font.kVariantNormal)
-    sysFont:drawText("(C) Kounch 2022", 50, 90, kTextAlignment.center)
+    gfx.setLineWidth(3)
+    playdate.graphics.setColor(playdate.graphics.kColorWhite)
+    gfx.fillRoundRect(20, 20, 360, 200, 5)
+    playdate.graphics.setColor(playdate.graphics.kColorBlack)
+    gfx.drawRoundRect(20, 20, 360, 200, 5)
+
+    bgImage = gfx.image.new("Images/qr")
+    bgImage:draw(220,62)
+
+    gfx.drawTextAligned("*Spider SG-21 for Playdate*", 200, 38, kTextAlignment.center)
+    gfx.drawTextInRect("Scan this QR code to access the official web page at", 40, 75, 170, 100, nil, nil, kTextAlignment.left)
+    gfx.drawTextAligned("_kounch.itch.io_", 150, 140, kTextAlignment.center)
+    gfx.drawTextAligned("(C) Kounch 2022", 125, 182, kTextAlignment.center)
 end
 
 print("Game Init...")
