@@ -39,6 +39,7 @@ local waitDelay = 100
 local spiderDelay = 300
 local spiderAccel = 0
 local score = 0
+local scoreCount = 0
 local gameStatus = 0  -- 0-Menu, 1-Game A, 2-Game B, 3-Credits
 local oldGameStatus = 0
 local pauseGame = false
@@ -246,6 +247,7 @@ function startGame(gameMode)
 
     gameStatus = gameMode
     score = 0
+    scoreCount = 0
     pauseGame = false
     endGame = false
     doTurn = true
@@ -475,18 +477,23 @@ function playdate.update()
                     playerId += 1
                     moved = true
                 elseif boatSprite:isVisible() then
-                    handSound:play()
-                    score+=1
-                    drawBoy(1)
-                    drawMachete()
+                    if scoreCount<15 then
+                        handSound:play()
+                        score+=3
+                        scoreCount+=1
+                        drawBoy(1)
+                        drawMachete()
+                    end
                 end
             end
 
             if playdate.buttonJustPressed(playdate.kButtonLeft) then
-                if playerId>1 then
+                if playerId>2 or (playerId==2 and scoreCount>0) then
                     playerId -= 1
                     moved = true
                     if playerId == 1 then
+                        score += 2
+                        scoreCount = 0
                         drawHello(playerPositions[playerId].id)
                         waitAndPush(waitDelay-20)
                     end
@@ -499,6 +506,7 @@ function playdate.update()
 
             if playerId>1 and spiderSprites[playerId-1][4]:isVisible() then  -- Is it a kill?
                 pauseGame = true
+                scoreCount = 0
                 deadSound:play()
                 deadSprite:setImage(playerTable:getImage(playerPositions[playerId+9].id))
                 deadSprite:moveTo(playerPositions[playerId+9].x, playerPositions[playerId+9].y)
