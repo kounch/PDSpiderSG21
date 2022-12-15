@@ -21,7 +21,6 @@ local boySprites = {}
 local spiderSprites = {}
 local boatSprite = nil
 local carSprite = nil
-local bg = false
 local playerId = 1
 local lives = 0
 local spiderIds = {4, 4, 4, 4, 4, 1}
@@ -40,7 +39,7 @@ local spiderDelay = 300
 local spiderAccel = 0
 local score = 0
 local scoreCount = 0
-local gameStatus = 0  -- 0-Menu, 1-Game A, 2-Game B, 3-Credits
+local gameStatus = 0  -- 0-Menu, 1-Game (A or B), -1-Game Starting , -2-Credis
 local oldGameStatus = 0
 local pauseGame = false
 local endGame = false
@@ -59,7 +58,7 @@ local spiderTable = gfx.imagetable.new("Images/spider")
 assert(spiderTable)
 local extraTable = gfx.imagetable.new("Images/extra")
 assert(extraTable)
-local backgroundImage = gfx.image.new("Images/bg")
+local backgroundImage = gfx.image.new("Images/fg")
 assert(backgroundImage)
 
 local deadSound = playdate.sound.sampleplayer.new("dead")
@@ -161,7 +160,7 @@ function setPlaydateMenu()
     local menuItem, error = sysMenu:addMenuItem("Credits",
         function()
             oldGameStatus = gameStatus
-            gameStatus = 3
+            gameStatus = -2
         end
     )
 end
@@ -234,6 +233,10 @@ function startGame(gameMode)
     lives = 2
     doBoat = true
 
+    backgroundImage:load( "Images/bg" )
+    assert(backgroundImage)
+    gfx.sprite.redrawBackground()
+
     for i = 1,2
     do
         liveSprites[i]:setVisible(true)
@@ -245,10 +248,10 @@ function startGame(gameMode)
     drawPlayer()
     waitAndPush(waitDelay)
 
-    gameStatus = gameMode
+    gameStatus = -1
     score = 0
     scoreCount = 0
-    pauseGame = false
+    pauseGame = true
     endGame = false
     doTurn = true
     spiderTurn = 1
@@ -269,7 +272,14 @@ function resetGame()
     pauseGame = true
     endGame = false
     gameStatus = 0
-    playdate.timer.performAfterDelay(260, clearSprites)
+    playdate.timer.performAfterDelay(260,
+        function()
+            clearSprites()
+            backgroundImage:load( "Images/fg" )
+            assert(backgroundImage)
+            gfx.sprite.redrawBackground()
+        end
+    )
 end
 
 function gameOver()
@@ -391,7 +401,7 @@ function waitAndPush(counter)
 end
 
 function showCredits()
-    gameStatus = 3
+    gameStatus = -2
 
     local bgImage = gfx.image.new("Images/fg")
     bgImage:draw(0,0)
@@ -413,28 +423,22 @@ end
 
 print("Game Init...")
 myGameSetUp()
+resetGame()
 
 print("Main loop...")
 function playdate.update()
     if gameStatus==0 then
-        if playdate.buttonJustPressed(playdate.kButtonDown) then
-            endGame = not endGame
-        elseif playdate.buttonIsPressed(playdate.kButtonUp) then
-            if not bg then
-                backgroundImage:load( "Images/fg" )
-                assert(backgroundImage)
-                gfx.sprite.redrawBackground()
-                bg = true
-            end
+        if playdate.buttonIsPressed(playdate.kButtonUp) then
+            backgroundImage:load( "Images/bg" )
+            assert(backgroundImage)
+            gfx.sprite.redrawBackground()
+            endGame = false
         elseif playdate.buttonJustPressed(playdate.kButtonA) then
             startGame(1)
         elseif playdate.buttonJustPressed(playdate.kButtonB) then
             startGame(2)
-        elseif bg then
-            backgroundImage:load( "Images/bg" )
-            assert(backgroundImage)
-            gfx.sprite.redrawBackground()
-            bg = false
+        else
+            displayScore()
         end
 
         if endGame then
@@ -442,7 +446,7 @@ function playdate.update()
         else
             displayTime()
         end
-    elseif gameStatus<3 then
+    elseif gameStatus>0 then
         if not pauseGame then
             if doBoat then
                 doBoat = false
@@ -517,15 +521,28 @@ function playdate.update()
                 playdate.timer.performAfterDelay(1500, killPlayer)
             end
         end
-    else
+    end
+
+    if gameStatus<-1 then
         showCredits()
         if playdate.buttonJustPressed(playdate.kButtonA) then
             gameStatus = oldGameStatus
         end
+    else
+        if gameStatus<0 then
+            if playdate.buttonJustPressed(playdate.kButtonRight) or playdate.buttonJustPressed(playdate.kButtonA) then
+                if not pauseGame then
+                    gameStatus = 1
+                    playerId += 1
+                    drawPlayer()
+                end
+            else
+                pauseGame = false
+            end
+        else
+            playdate.timer.updateTimers()
+        end
+        gfx.sprite.update()
     end
 
-    if gameStatus<3 then
-        gfx.sprite.update()
-        playdate.timer.updateTimers()
-    end
 end
