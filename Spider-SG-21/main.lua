@@ -70,6 +70,7 @@ assert(backgroundImage)
 local deadSound = playdate.sound.sampleplayer.new("dead")
 local clickSound = playdate.sound.sampleplayer.new("click")
 local handSound = playdate.sound.sampleplayer.new("hand")
+local extraSound = playdate.sound.sampleplayer.new("extra")
 local endSound = playdate.sound.sampleplayer.new("gameover")
 
 -- Functions
@@ -232,8 +233,8 @@ end
 function checkWeb()
     if legTimers[3]==nil and webCount >=50 then
         webCount -= 50
-        local newDelay = spiderDelay * 3
-        legTimers[3] = playdate.timer.performAfterDelay(newDelay, updateLeg, 3)
+        local currentDelay = spiderDelay * 3
+        legTimers[3] = playdate.timer.performAfterDelay(currentDelay, updateLeg, 3)
     end
 end
 
@@ -250,7 +251,9 @@ end
 function doClick(clickId)
     clickSound:play()
 
-    local currentDelay = spiderClicks[clickId] * clicksDelay
+    local currentDelay = score // 500
+    currentDelay = clicksDelay - score // 500 * 2
+    currentDelay *= spiderClicks[clickId]
 
     clickId += 1
     if (clickId > #spiderClicks) then
@@ -286,10 +289,10 @@ end
 function updateLeg(legId)
     if gameStatus>0 then
         spiderIds[legId] += 1
-        local newDelay = spiderDelay
+        local currentDelay = spiderDelay - score // 500 * 50
         if spiderIds[legId]>4 then
             spiderIds[legId] = 0
-            newDelay *= 2
+            currentDelay *= 2
         end
 
         for j = 1,4
@@ -302,26 +305,32 @@ function updateLeg(legId)
         end
 
         if legId~=3 or spiderIds[legId]~=0 then
-            legTimers[legId] = playdate.timer.performAfterDelay(newDelay, updateLeg, legId)
+            legTimers[legId] = playdate.timer.performAfterDelay(currentDelay, updateLeg, legId)
         else
             legTimers[legId] = nil
         end
     end
 end
 
+function checkExtraLife(scoreIncrease)
+    score += scoreIncrease
+    webCount += scoreIncrease
+    if score>299 and score<300+scoreIncrease then
+        extraSound:play()
+        lives+=1
+        drawLives()
+    end
+end
+
 function startGame(gameMode)
     print("Starting new game:" .. gameMode)
-    lives = 2
-
     backgroundImage:load( "Images/bg" )
     assert(backgroundImage)
     gfx.sprite.redrawBackground()
 
     clearSprites()
-    for i = 1,2
-    do
-        liveSprites[i]:setVisible(true)
-    end
+    lives = 2
+    drawLives()
     carSprite:setVisible(true)
     boatSprite:setVisible(false)
     playerSprite:setVisible(true)
@@ -393,11 +402,8 @@ function clearSprites()
     playerId = 1
     drawPlayer()
 
-    for i = 1,2
-    do
-        liveSprites[i]:setVisible(false)
-        labelSprites[i]:setVisible(false)
-    end
+    lives = 0
+    drawLives()
     labelSprites[3]:setVisible(false)
     deadSprite:setVisible(false)
     carSprite:setVisible(false)
@@ -416,16 +422,19 @@ function drawPlayer()
 end
 
 function killPlayer()
-    lives -= 1
     if lives<0 then
         gameOver()
     else
         startSpider()
-        deadSprite:setVisible(false)
-        playerId = 1
-        drawPlayer()
         waitAndPush(waitDelay)
         pauseGame = false
+    end
+end
+
+function drawLives()
+    for i = 1,2
+    do
+        liveSprites[3-i]:setVisible(lives>=i)
     end
 end
 
@@ -476,10 +485,28 @@ function drawHello(spriteId)
     end
 end
 
-function drawKill(counter)
+function drawKill(counter, tmpSprite)
     deadSprite:setVisible(not deadSprite:isVisible())
+    if counter == 9 then
+        tmpSprite = gfx.sprite.new(playerTable:getImage(playerPositions[1].id))
+        tmpSprite:moveTo(playerPositions[1].x, playerPositions[1].y)
+        tmpSprite:add()
+        if lives<3 then
+            liveSprites[2]:setVisible(false)
+        end
+    end
+    if counter == 5 then
+        drawLives()
+    end
     if counter>0 then
-        playdate.timer.performAfterDelay(50, drawKill, counter-1)
+        playdate.timer.performAfterDelay(50, drawKill, counter-1, tmpSprite)
+    elseif tmpSprite ~= nil then
+        tmpSprite:remove()
+        if lives>=0 then
+            deadSprite:setVisible(false)
+            playerId = 1
+            drawPlayer()
+        end
     end
 end
 
@@ -584,9 +611,8 @@ function playdate.update()
                     drawMachete()
                     if boatSprite:isVisible() and scoreCount<15 then
                         handSound:play()
-                        score += 3
+                        checkExtraLife(3)
                         scoreCount += 1
-                        webCount += 3
                         checkWeb()
                         drawBoy(1)
                     end
@@ -598,8 +624,7 @@ function playdate.update()
                     playerId -= 1
                     moved = true
                     if playerId == 1 then
-                        score += 2
-                        webCount += 2
+                        checkExtraLife(2)
                         scoreCount = 0
                         if score>50 and webCount>8 then
                             webCount += 50
@@ -621,10 +646,8 @@ function playdate.update()
                 deadSprite:setImage(playerTable:getImage(playerPositions[playerId+9].id))
                 deadSprite:moveTo(playerPositions[playerId+9].x, playerPositions[playerId+9].y)
                 pauseSpider()
+                lives -= 1
                 drawKill(14)
-                if lives>0 and lives<3 then
-                    liveSprites[3-lives]:setVisible(false)
-                end
                 playdate.timer.performAfterDelay(1500, killPlayer)
             end
         end
