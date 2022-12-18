@@ -233,7 +233,7 @@ end
 function checkWeb()
     if legTimers[3]==nil and webCount >=50 then
         webCount -= 50
-        local currentDelay = spiderDelay * 3
+        local currentDelay = spiderDelay * 3 - score // 500 * 50
         legTimers[3] = playdate.timer.performAfterDelay(currentDelay, updateLeg, 3)
     end
 end
@@ -252,7 +252,7 @@ function doClick(clickId)
     clickSound:play()
 
     local currentDelay = score // 500
-    currentDelay = clicksDelay - score // 500 * 2
+    currentDelay = clicksDelay - score // 500 * 5
     currentDelay *= spiderClicks[clickId]
 
     clickId += 1
