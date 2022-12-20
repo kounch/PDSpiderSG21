@@ -33,10 +33,13 @@ assert(positionsTable)
 local playerPositions = positionsTable.playerPositions
 local spiderPositions = positionsTable.spiderPositions
 local spiderMoves = {}
+local falseMove = 0
 local spiderClicks = {}
 local waitDelay = 50
 local spiderDelay = 300
-local clicksDelay = 0
+local spiderPostDelay = 850
+local boatDelay = 10000
+local clicksPositions = {}
 local spiderAccel = 0
 local score = 0
 local scoreCount = 0
@@ -45,13 +48,11 @@ local gameStatus = 0  -- 0-Menu, 1-Game (A or B), -1-Game Starting , -2-Credis
 local oldGameStatus = 0
 local pauseGame = false
 local endGame = false
-local pauseGame = false
-local doTurn = false
 local doBoat = false
 
 local boatTimer = nil
 local legTimers = {nil, nil, nil, nil, nil}
-local clicktimer = nil
+local clickTimer = nil
 
 print ("Loading assets...")
 local digitTable = gfx.imagetable.new("Images/digits")
@@ -223,48 +224,50 @@ function startLegs()
         end
         if legTimers[i] ~= nil then
             legTimers[i]:remove()
+            legTimers[i] = nil
         end
         if spiderMoves[i]>0 then
             legTimers[i] = playdate.timer.performAfterDelay(spiderMoves[i], updateLeg, i)
+        else
+            falseMove = i
         end
     end
 end
 
 function checkWeb()
-    if legTimers[3]==nil and webCount >=50 then
+    if falseMove>0 and legTimers[falseMove]==nil and webCount >=50 then
         webCount -= 50
-        local currentDelay = spiderDelay * 3 - score // 500 * 50
-        legTimers[3] = playdate.timer.performAfterDelay(currentDelay, updateLeg, 3)
+        local currentDelay = spiderDelay * falseMove - score // 500 * 50 * falseMove
+        legTimers[falseMove] = playdate.timer.performAfterDelay(currentDelay, updateLeg, falseMove)
     end
 end
 
 function startClicks()
-    local startDelay = positionsTable.clicks[1]
-    spiderClicks = positionsTable.clicks[2]
+    local startDelay = clicksPositions[1]
+    spiderClicks = clicksPositions[2]
 
-    if clicktimer ~= nil then
-        clicktimer:remove()
+    if clickTimer ~= nil then
+        clickTimer:remove()
     end
-    clicktimer = playdate.timer.performAfterDelay(startDelay, doClick, 1)
+    clickTimer = playdate.timer.performAfterDelay(startDelay, doClick, 1)
 end
 
 function doClick(clickId)
     clickSound:play()
 
-    local currentDelay = score // 500
-    currentDelay = clicksDelay - score // 500 * 5
+    local currentDelay = clicksPositions[3] - score // 500 * 3
     currentDelay *= spiderClicks[clickId]
 
     clickId += 1
     if (clickId > #spiderClicks) then
         clickId = 1
     end
-    clicktimer = playdate.timer.performAfterDelay(currentDelay, doClick, clickId)
+    clickTimer = playdate.timer.performAfterDelay(currentDelay, doClick, clickId)
 end
 
 function pauseSpider()
-    if clicktimer ~= nil then
-        clicktimer:pause()
+    if clickTimer ~= nil then
+        clickTimer:pause()
     end
     for i=1,5
     do
@@ -275,8 +278,8 @@ function pauseSpider()
 end
 
 function startSpider()
-    if clicktimer ~= nil then
-        clicktimer:start()
+    if clickTimer ~= nil then
+        clickTimer:start()
     end
     for i=1,5
     do
@@ -289,11 +292,12 @@ end
 function updateLeg(legId)
     if gameStatus>0 then
         spiderIds[legId] += 1
-        local currentDelay = spiderDelay - score // 500 * 50
+        local currentDelay = spiderDelay
         if spiderIds[legId]>4 then
             spiderIds[legId] = 0
-            currentDelay *= 2
+            currentDelay = spiderPostDelay
         end
+        currentDelay -= score // 500 * 50
 
         for j = 1,4
         do
@@ -304,7 +308,7 @@ function updateLeg(legId)
             end
         end
 
-        if legId~=3 or spiderIds[legId]~=0 then
+        if legId~=falseMove or spiderIds[legId]~=0 then
             legTimers[legId] = playdate.timer.performAfterDelay(currentDelay, updateLeg, legId)
         else
             legTimers[legId] = nil
@@ -312,10 +316,27 @@ function updateLeg(legId)
     end
 end
 
-function checkExtraLife(scoreIncrease)
+function updateBoat()
+    if boatTimer ~= nil then
+        boatTimer:remove()
+        boatTimer = nil
+    end
+    currentDelay = boatDelay
+    local showBoat = not boatSprite:isVisible()
+    if showBoat and boatDelay<10000 then
+        currentDelay = 10000 - boatDelay
+    end
+    boatSprite:setVisible(showBoat)
+    boatTimer = playdate.timer.performAfterDelay(currentDelay, updateBoat)
+end
+
+function checkScore(scoreIncrease)
     score += scoreIncrease
     webCount += scoreIncrease
-    if score>299 and score<300+scoreIncrease then
+
+    --local scoreLimit = (score + 1) // 300 * 300
+    local scoreLimit = 300
+    if scoreLimit>0 and score>scoreLimit-1 and score<scoreLimit+scoreIncrease then
         extraSound:play()
         lives+=1
         drawLives()
@@ -342,22 +363,32 @@ function startGame(gameMode)
     webCount = 0
     pauseGame = true
     endGame = false
-    doTurn = true
     doBoat = true
     local r = math.random(1,2)
-    spiderMoves = positionsTable.GameA[r]
-    spiderDelay = positionsTable.GameA[3]
-    clicksDelay = positionsTable.clicks[3]
+
+    falseMove = 0
+    local newPositions = positionsTable.GameA
+    clicksPositions = positionsTable.clicksA
     if gameMode>1 then
-        spiderMoves = positionsTable.GameB[r]
-        spiderDelay = positionsTable.GameB[3]
-        clicksDelay = positionsTable.clicks[3]//2
+        newPositions = positionsTable.GameB
+        clicksPositions = positionsTable.clicksB
     end
+    spiderMoves = newPositions[r]
+    spiderDelay = newPositions[3]
+    spiderPostDelay = newPositions[4]
+    boatDelay = newPositions[5]
+
     for i = 1,3
     do
         labelSprites[i]:setVisible(false)
     end
     labelSprites[gameMode]:setVisible(true)
+
+    if boatTimer ~= nil then
+        boatTimer:remove()
+        boatTimer = nil
+    end
+    boatTimer = playdate.timer.performAfterDelay(boatDelay, updateBoat)
 end
 
 function resetGame()
@@ -366,11 +397,13 @@ function resetGame()
     endGame = false
     gameStatus = 0
 
-    if clicktimer ~= nil then
-        clicktimer:remove()
+    if clickTimer ~= nil then
+        clickTimer:remove()
+        clickTimer = nil
     end
     if boatTimer ~= nil then
         boatTimer:remove()
+        boatTimer = nil
     end
 
     playdate.timer.performAfterDelay(260,
@@ -412,6 +445,10 @@ function clearSprites()
     for i = 1,5
     do
         spiderIds[i] = 0
+        if legTimers[i] ~= nil then
+            legTimers[i]:remove()
+            legTimers[i] = nil
+        end
     end
     drawSpider()
 end
@@ -502,6 +539,7 @@ function drawKill(counter, tmpSprite)
         playdate.timer.performAfterDelay(50, drawKill, counter-1, tmpSprite)
     elseif tmpSprite ~= nil then
         tmpSprite:remove()
+        tmpSprite = nil
         if lives>=0 then
             deadSprite:setVisible(false)
             playerId = 1
@@ -535,7 +573,7 @@ function showCredits()
     gfx.drawRoundRect(20, 20, 360, 200, 5)
 
     bgImage = gfx.image.new("Images/qr")
-    bgImage:draw(220,62)
+    bgImage:draw(225,70)
 
     gfx.drawTextAligned("*Spider SG-21 for Playdate*", 200, 38, kTextAlignment.center)
     gfx.drawTextInRect("Scan this QR code to access the official web page at", 40, 75, 170, 100, nil, nil, kTextAlignment.left)
@@ -549,22 +587,6 @@ resetGame()
 
 print("Main loop...")
 function playdate.update()
-    if doBoat then
-        doBoat = false
-        if boatTimer ~= nil then
-            boatTimer:remove()
-        end
-        boatTimer = playdate.timer.performAfterDelay(10000,
-            function()
-                if gameStatus>-2 then
-                    doBoat = true
-                    local showBoat = not boatSprite:isVisible()
-                    boatSprite:setVisible(showBoat)
-                end
-            end
-        )
-    end
-
     if gameStatus==0 then
         if playdate.buttonIsPressed(playdate.kButtonUp) then
             backgroundImage:load( "Images/bg" )
@@ -586,18 +608,7 @@ function playdate.update()
         end
     elseif gameStatus>0 then
         if not pauseGame then
-            if doTurn then
-                doTurn = false
-                local scoreDelay = spiderDelay//(1+score/130)
-                playdate.timer.performAfterDelay(scoreDelay,
-                    function()
-                        displayScore()
-                        doTurn = true
-                    end
-                )
-            else
-                doTurn = false
-            end
+            displayScore()
 
             local moved = false
             if playdate.buttonJustPressed(playdate.kButtonRight) or playdate.buttonJustPressed(playdate.kButtonA) then
@@ -609,9 +620,13 @@ function playdate.update()
                     end
                 else
                     drawMachete()
-                    if boatSprite:isVisible() and scoreCount<15 then
+                    local newScore = 3
+                    if scoreCount == 9 then
+                        newScore = 18
+                    end
+                    if boatSprite:isVisible() and scoreCount<10 then
                         handSound:play()
-                        checkExtraLife(3)
+                        checkScore(newScore)
                         scoreCount += 1
                         checkWeb()
                         drawBoy(1)
@@ -624,7 +639,7 @@ function playdate.update()
                     playerId -= 1
                     moved = true
                     if playerId == 1 then
-                        checkExtraLife(2)
+                        checkScore(2)
                         scoreCount = 0
                         if score>50 and webCount>8 then
                             webCount += 50
@@ -663,7 +678,6 @@ function playdate.update()
             displayScore()
             if playdate.buttonJustPressed(playdate.kButtonRight) or playdate.buttonJustPressed(playdate.kButtonA) then
                 if not pauseGame then
-                    doTurn = true
                     gameStatus = 1
                     playerId += 1
                     drawPlayer()
