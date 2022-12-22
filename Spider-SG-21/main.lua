@@ -48,7 +48,9 @@ local webCount = 0
 local gameStatus = 0  -- 0-Menu, 1-Game (A or B), 2-Demo Mode, -1-Game Starting , -2-Credis
 local oldGameStatus = 0
 local demoSense = 0
-local demoMove = 0
+local moveDirection = 0
+local crankRadius = 0
+local crankSensitivity = 65
 local pauseGame = false
 local endGame = false
 
@@ -178,13 +180,22 @@ function setPlaydateMenu()
     local sysMenu = playdate.getSystemMenu()
     local listMenuItems = sysMenu:getMenuItems()
     sysMenu:removeAllMenuItems()
-    local menuItem, error = sysMenu:addMenuItem("Reset", resetGame)
-    local menuItem, error = sysMenu:addMenuItem("Credits",
+    sysMenu:addMenuItem("Credits",
         function()
             oldGameStatus = gameStatus
             gameStatus = -2
         end
     )
+    local defaultMenuItem = (85 - crankSensitivity) / 5
+    print(defaultMenuItem)
+    sysMenu:addOptionsMenuItem("Sensitivity", {"1", "2", "3", "4", "5", "6", "7"}, defaultMenuItem, updateSensitivity)
+    sysMenu:addMenuItem("Reset game", resetGame)
+end
+
+-- Updates sensitivity menu item
+function updateSensitivity(value)
+    crankSensitivity = 85 - 5 * tonumber(value)
+    print (crankSensitivity)
 end
 
 -- Initialize spider legs and/or web spriteds and initialize (if needed) the recurring timers 
@@ -338,9 +349,9 @@ end
 function waitAndMove()
     if not pauseGame then
         demoSense -= 1
-        demoMove=-1
+        moveDirection=-1
         if demoSense>0 then
-            demoMove = 1
+            moveDirection = 1
         elseif demoSense==0 then
             demoSense = -1
         end
@@ -491,7 +502,7 @@ function drawHello(spriteId)
             if playerSprite:getImage() == playerTable:getImage(newId) then
                 newId = playerPositions[playerId].id
             end
-            if gameStatus<3 then
+            if gameStatus<2 then
                 handSound:play()
             end
             playdate.timer.performAfterDelay(220, drawHello, newId)
@@ -528,8 +539,6 @@ end
 
 -- Pause everything and show the credits window
 function showCredits()
-    gameStatus = -2
-
     local bgImage = gfx.image.new("Images/fg")
     bgImage:draw(0,0)
 
@@ -555,7 +564,7 @@ end
 
 -- Increase the score and, if needed, add extra life
 function checkScore(scoreIncrease)
-    if gameStatus<3 then
+    if gameStatus<2 then
         score += scoreIncrease
     end
     webCount += scoreIncrease
@@ -563,7 +572,7 @@ function checkScore(scoreIncrease)
     --local scoreLimit = (score + 1) // 300 * 300
     local scoreLimit = 300
     if scoreLimit>0 and score>scoreLimit-1 and score<scoreLimit+scoreIncrease then
-        if gameStatus<3 then
+        if gameStatus<2 then
             extraSound:play()
             lives+=1
             drawLives()
@@ -576,12 +585,13 @@ function killPlayer()
     if lives<0 then
         gameOver()
     else
-        startSpider()
-        waitAndPush(waitDelay)
-        pauseGame = false
-        if gameStatus==3 then
+        if gameStatus==2 then
             demoSense = 12
+        else
+            waitAndPush(waitDelay)
         end
+        startSpider()
+        pauseGame = false
     end
 end
 
@@ -651,7 +661,8 @@ function startGame(gameMode)
     webCount = 0
     pauseGame = true
     endGame = false
-    demoMove = 0
+    moveDirection = 0
+    crankRadius = 0
     local r = math.random(1,2)
 
     falseMove = 0
@@ -662,20 +673,20 @@ function startGame(gameMode)
         clicksPositions = positionsTable.clicksB
     end
 
-    for i = 1,3
-    do
-        labelSprites[i]:setVisible(false)
-    end
-
     if gameMode<3 then
+        for i = 1,3
+        do
+            labelSprites[i]:setVisible(false)
+        end
         gameStatus = -1
         waitAndPush(waitDelay)
         labelSprites[gameMode]:setVisible(true)
     else
-        gameStatus = 3
+        gameStatus = 2
         newPositions = positionsTable.Demo
         clicksPositions = {}
     end
+
     spiderMoves = newPositions[r]
     spiderDelay = newPositions[3]
     spiderPostDelay = newPositions[4]
@@ -706,7 +717,7 @@ resetGame()
 
 print("Main loop...")
 function playdate.update()
-    if gameStatus==0 or gameStatus==3 then
+    if gameStatus==0 or gameStatus==2 then
         if gameStatus==0 and playdate.buttonIsPressed(playdate.kButtonUp) then
             backgroundImage:load( "Images/bg" )
             assert(backgroundImage)
@@ -717,7 +728,7 @@ function playdate.update()
             startGame(1)
         elseif playdate.buttonJustPressed(playdate.kButtonB) then
             startGame(2)
-        elseif gameStatus~=3 then
+        else
             displayScore()
         end
 
@@ -730,15 +741,34 @@ function playdate.update()
 
     if gameStatus>0 then
         if not pauseGame then
-            if gameStatus<3 then
+            if gameStatus<2 then
                 displayScore()
             else
                 displayTime()
             end
 
             local moved = false
-            if (gameStatus<3 and (playdate.buttonJustPressed(playdate.kButtonRight) or playdate.buttonJustPressed(playdate.kButtonA)))or demoMove==1 then
-                demoMove = 0
+            if gameStatus<2 then
+                moveDirection = 0
+                if playdate.buttonJustPressed(playdate.kButtonRight) or playdate.buttonJustPressed(playdate.kButtonA) then
+                    moveDirection = 1
+                elseif playdate.buttonJustPressed(playdate.kButtonLeft) then
+                    moveDirection = -1
+                end
+                if not playdate.isCrankDocked() then
+                    crankRadius += playdate.getCrankChange()
+                    if crankRadius>crankSensitivity then
+                        moveDirection = 1
+                        crankRadius = 0
+                    elseif crankRadius<-crankSensitivity then
+                        moveDirection = -1
+                        crankRadius = 0
+                    end
+                end
+            end
+            
+            if moveDirection == 1 then
+                moveDirection = 0
                 if playerId < 6 then
                     playerId += 1
                     moved = true
@@ -752,7 +782,7 @@ function playdate.update()
                         newScore = 18
                     end
                     if boatSprite:isVisible() and scoreCount<10 then
-                        if gameStatus<3 then
+                        if gameStatus<2 then
                             handSound:play()
                         end
                         checkScore(newScore)
@@ -761,10 +791,8 @@ function playdate.update()
                         drawBoy(1)
                     end
                 end
-            end
-
-            if (gameStatus<3 and playdate.buttonJustPressed(playdate.kButtonLeft)) or demoMove==-1 then
-                demoMove = 0
+            elseif moveDirection == -1 then
+                moveDirection = 0
                 if demoSense<-10 then
                     demoSense = 12
                 end
@@ -778,7 +806,7 @@ function playdate.update()
                             webCount += 50
                         end
                         drawHello(playerPositions[playerId].id)
-                        if gameStatus<3 then
+                        if gameStatus<2 then
                             waitAndPush(waitDelay-20)
                         end
                     end
@@ -792,7 +820,7 @@ function playdate.update()
             if playerId>1 and spiderSprites[playerId-1][4]:isVisible() then  -- Is it a kill?
                 scoreCount = 0
                 pauseGame = true
-                if gameStatus<3 then
+                if gameStatus<2 then
                     deadSound:play()
                     lives -= 1
                 end
@@ -813,7 +841,19 @@ function playdate.update()
     else
         if gameStatus<0 then
             displayScore()
+
+            local doStart = false
             if playdate.buttonJustPressed(playdate.kButtonRight) or playdate.buttonJustPressed(playdate.kButtonA) then
+                doStart = true
+            end
+            if not playdate.isCrankDocked() then
+                crankRadius += playdate.getCrankChange()
+                if crankRadius>crankSensitivity then
+                    doStart = true
+                end
+            end
+
+            if doStart then
                 if not pauseGame then
                     gameStatus = 1
                     playerId += 1
