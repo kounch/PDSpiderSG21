@@ -358,9 +358,12 @@ function waitAndPush(counter)
         if counter>0 then
             playdate.timer.performAfterDelay(100, waitAndPush, counter-1)
         else
-            gameStatus = 1
-            playerId=2
-            drawPlayer()
+            if gameStatus>0 then
+                playerId=2
+                drawPlayer()
+            else
+                doStart()
+            end
         end
     end
 end
@@ -581,6 +584,22 @@ end
 ---------------------
 -- Other functions
 ---------------------
+
+-- Start game moving player to the river and starting spider and sound
+function doStart()
+    if not pauseGame then
+        gameStatus = 1
+        playerId += 1
+        drawPlayer()
+        startLegs()
+        playdate.timer.performAfterDelay(30,
+            function ()
+                clickSound:play()
+                startClicks()
+            end
+        )
+    end
+end
 
 -- Increase the score and, if needed, add extra life
 function checkScore(scoreIncrease)
@@ -858,30 +877,19 @@ function playdate.update()
         if gameStatus<0 then
             displayScore()
 
-            local doStart = false
+            local startMoving = false
             if playdate.buttonJustPressed(playdate.kButtonRight) or playdate.buttonJustPressed(playdate.kButtonA) then
-                doStart = true
+                startMoving = true
             end
             if not playdate.isCrankDocked() then
                 crankRadius += playdate.getCrankChange()
                 if crankRadius>crankSensitivity then
-                    doStart = true
+                    startMoving = true
                 end
             end
 
-            if doStart then
-                if not pauseGame then
-                    gameStatus = 1
-                    playerId += 1
-                    drawPlayer()
-                    startLegs()
-                    playdate.timer.performAfterDelay(30,
-                        function ()
-                            clickSound:play()
-                            startClicks()
-                        end
-                    )
-                end
+            if startMoving then
+                doStart()
             else
                 pauseGame = false
             end
