@@ -46,7 +46,9 @@ local clicksPositions = {}
 local score = 0
 local scoreCount = 0
 local webCount = 0
-local gameStatus = 0  -- 0-Menu, 1-Game (A or B), 2-Demo Mode, -1-Game Starting , -2-Credis
+local speederStart = 300
+local speederStepper = 150
+local gameStatus = 0  -- 0-Menu, 1-Game (A or B), 2-Demo Mode, -1-Game Starting , -2-Credits
 local oldGameStatus = 0
 local demoSense = 0
 local moveDirection = 0
@@ -244,7 +246,10 @@ end
 function checkWeb()
     if falseMove>0 and legTimers[falseMove]==nil and webCount >=50 then
         webCount -= 50
-        local currentDelay = spiderDelay * falseMove - score // 250 * 50 * falseMove
+        local currentDelay = spiderDelay * falseMove
+        if score>speederStart then
+            currentDelay -= score // speederStepper * 50 * falseMove
+        end
         legTimers[falseMove] = playdate.timer.performAfterDelay(currentDelay, updateLeg, falseMove)
     end
 end
@@ -257,7 +262,10 @@ end
 function doClick(clickId)
     clickSound:play()
 
-    local currentDelay = clicksPositions[3] - score // 250 * 3
+    local currentDelay = clicksPositions[3]
+    if score>speederStart then
+        currentDelay -= score // speederStepper * 3
+    end
     currentDelay *= spiderClicks[clickId]
 
     clickId += 1
@@ -276,7 +284,9 @@ function updateLeg(legId)
             spiderIds[legId] = 0
             currentDelay = spiderPostDelay
         end
-        currentDelay -= score // 250 * 50
+        if score>speederStart then
+            currentDelay -= score // speederStepper * 50
+        end
 
         for j = 1,4
         do
@@ -365,7 +375,7 @@ function waitAndMove()
         elseif demoSense==0 then
             demoSense = -1
         end
-        demoTimer = playdate.timer.performAfterDelay(800, waitAndMove)
+        demoTimer = playdate.timer.performAfterDelay(killDelay*4, waitAndMove)
     end
 end
 
@@ -595,7 +605,7 @@ function killPlayer()
         gameOver()
     else
         if gameStatus==2 then
-            demoSense = 12
+            demoSense = -6
         else
             waitAndPush(waitDelay)
         end
@@ -609,7 +619,6 @@ function gameOver()
     endSound:play()
     pauseGame = true
     endGame = true
-    gameStatus = 0
     labelSprites[3]:setVisible(true)
     if clickTimer ~= nil then
         clickTimer:remove()
@@ -617,9 +626,10 @@ function gameOver()
     playdate.timer.performAfterDelay(4000,
         function()
             deadSprite:setVisible(false)
-            if gameStatus<=0 then
+            if gameStatus>0 then
                 playerSprite:setVisible(false)
                 labelSprites[3]:setVisible(true)
+                gameStatus = 0
             end
         end
     )
@@ -706,7 +716,7 @@ function startGame(gameMode)
 
     if gameMode==3 then
         pauseGame = false
-        demoSense = 12
+        demoSense = -8
         demoTimer = playdate.timer.performAfterDelay(800, waitAndMove)
         startLegs()
     end
