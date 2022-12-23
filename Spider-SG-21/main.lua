@@ -41,6 +41,7 @@ local spiderPostDelay = 850
 local falseMove = 0
 local waitDelay = 50
 local boatDelay = 10000
+local killDelay = 50
 local clicksPositions = {}
 local score = 0
 local scoreCount = 0
@@ -177,6 +178,10 @@ end
 
 -- Adds menu for playdate
 function setPlaydateMenu()
+    local gameOptions = playdate.datastore.read()
+    if gameOptions and gameOptions.crankSensitivity then
+        crankSensitivity = gameOptions.crankSensitivity
+    end
     local sysMenu = playdate.getSystemMenu()
     local listMenuItems = sysMenu:getMenuItems()
     sysMenu:removeAllMenuItems()
@@ -186,16 +191,21 @@ function setPlaydateMenu()
             gameStatus = -2
         end
     )
-    local defaultMenuItem = (85 - crankSensitivity) / 5
-    print(defaultMenuItem)
-    sysMenu:addOptionsMenuItem("Sensitivity", {"1", "2", "3", "4", "5", "6", "7"}, defaultMenuItem, updateSensitivity)
+    local defaultMenuItem = (90 - crankSensitivity) / 5
+    local menuOptions = {}
+    for i = 1,9
+    do
+        menuOptions[i] = tostring(i)
+    end
+    sysMenu:addOptionsMenuItem("Sensitivity", menuOptions, defaultMenuItem, updateSensitivity)
     sysMenu:addMenuItem("Reset game", resetGame)
 end
 
 -- Updates sensitivity menu item
 function updateSensitivity(value)
-    crankSensitivity = 85 - 5 * tonumber(value)
-    print (crankSensitivity)
+    crankSensitivity = 90 - 5 * tonumber(value)
+    local gameOptions = {crankSensitivity = crankSensitivity}
+    playdate.datastore.write(gameOptions)
 end
 
 -- Initialize spider legs and/or web spriteds and initialize (if needed) the recurring timers 
@@ -234,7 +244,7 @@ end
 function checkWeb()
     if falseMove>0 and legTimers[falseMove]==nil and webCount >=50 then
         webCount -= 50
-        local currentDelay = spiderDelay * falseMove - score // 500 * 50 * falseMove
+        local currentDelay = spiderDelay * falseMove - score // 250 * 50 * falseMove
         legTimers[falseMove] = playdate.timer.performAfterDelay(currentDelay, updateLeg, falseMove)
     end
 end
@@ -247,7 +257,7 @@ end
 function doClick(clickId)
     clickSound:play()
 
-    local currentDelay = clicksPositions[3] - score // 500 * 3
+    local currentDelay = clicksPositions[3] - score // 250 * 3
     currentDelay *= spiderClicks[clickId]
 
     clickId += 1
@@ -266,7 +276,7 @@ function updateLeg(legId)
             spiderIds[legId] = 0
             currentDelay = spiderPostDelay
         end
-        currentDelay -= score // 500 * 50
+        currentDelay -= score // 250 * 50
 
         for j = 1,4
         do
@@ -406,7 +416,7 @@ function displayScore()
     end
 end
 
--- Reset almost all sprites to the starting state before a new game
+-- Reset almost all sprites and timers to the starting state before a new game
 function clearSprites()
     playerId = 1
     drawPlayer()
@@ -525,7 +535,7 @@ function drawKill(counter, tmpSprite)
         drawLives()
     end
     if counter>0 and gameStatus>0 then
-        playdate.timer.performAfterDelay(50, drawKill, counter-1, tmpSprite)
+        playdate.timer.performAfterDelay(killDelay, drawKill, counter-1, tmpSprite)
     elseif tmpSprite ~= nil then
         tmpSprite:remove()
         tmpSprite = nil
@@ -569,7 +579,6 @@ function checkScore(scoreIncrease)
     end
     webCount += scoreIncrease
 
-    --local scoreLimit = (score + 1) // 300 * 300
     local scoreLimit = 300
     if scoreLimit>0 and score>scoreLimit-1 and score<scoreLimit+scoreIncrease then
         if gameStatus<2 then
@@ -632,14 +641,10 @@ function resetGame()
         boatTimer = nil
     end
 
-    playdate.timer.performAfterDelay(260,
-        function()
-            clearSprites()
-            backgroundImage:load( "Images/fg" )
-            assert(backgroundImage)
-            gfx.sprite.redrawBackground()
-        end
-    )
+    clearSprites()
+    backgroundImage:load( "Images/fg" )
+    assert(backgroundImage)
+    gfx.sprite.redrawBackground()
 end
 
 -- Begin a new game (A or B) or start demo game mode
@@ -691,6 +696,7 @@ function startGame(gameMode)
     spiderDelay = newPositions[3]
     spiderPostDelay = newPositions[4]
     boatDelay = newPositions[5]
+    killDelay = newPositions[6]
 
     if boatTimer ~= nil then
         boatTimer:remove()
@@ -828,7 +834,7 @@ function playdate.update()
                 deadSprite:moveTo(playerPositions[playerId+9].x, playerPositions[playerId+9].y)
                 pauseSpider()
                 drawKill(14)
-                playdate.timer.performAfterDelay(1500, killPlayer)
+                playdate.timer.performAfterDelay(30 * killDelay, killPlayer)
             end
         end
     end
