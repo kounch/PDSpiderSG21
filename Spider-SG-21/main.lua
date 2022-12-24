@@ -56,6 +56,8 @@ local crankRadius = 0
 local crankSensitivity = 65
 local pauseGame = false
 local endGame = false
+local ki = 1
+local kb = false
 
 -- Timers
 local boatTimer = nil
@@ -190,6 +192,8 @@ function setPlaydateMenu()
     sysMenu:addMenuItem("Credits",
         function()
             oldGameStatus = gameStatus
+            ki = 1
+            kb = true
             gameStatus = -2
         end
     )
@@ -611,7 +615,7 @@ function checkScore(scoreIncrease)
     if scoreLimit>0 and score>scoreLimit-1 and score<scoreLimit+scoreIncrease then
         if gameStatus<2 then
             extraSound:play()
-            lives+=1
+            lives += 1
             drawLives()
         end
     end
@@ -659,6 +663,7 @@ function resetGame()
     pauseGame = true
     endGame = false
     gameStatus = 0
+    kb = false
 
     if clickTimer ~= nil then
         clickTimer:remove()
@@ -751,16 +756,17 @@ resetGame()
 
 print("Main loop...")
 function playdate.update()
+    local kr = {playdate.kButtonUp, playdate.kButtonDown, playdate.kButtonLeft, playdate.kButtonRight, playdate.kButtonB, playdate.kButtonA}
     if gameStatus==0 or gameStatus==2 then
-        if gameStatus==0 and playdate.buttonIsPressed(playdate.kButtonUp) then
+        if gameStatus==0 and playdate.buttonIsPressed(kr[1]) then
             backgroundImage:load( "Images/bg" )
             assert(backgroundImage)
             gfx.sprite.redrawBackground()
             endGame = false
             startGame(3)
-        elseif playdate.buttonJustPressed(playdate.kButtonA) then
+        elseif playdate.buttonJustPressed(kr[6]) then
             startGame(1)
-        elseif playdate.buttonJustPressed(playdate.kButtonB) then
+        elseif playdate.buttonJustPressed(kr[5]) then
             startGame(2)
         else
             displayScore()
@@ -784,9 +790,9 @@ function playdate.update()
             local moved = false
             if gameStatus<2 then
                 moveDirection = 0
-                if playdate.buttonJustPressed(playdate.kButtonRight) or playdate.buttonJustPressed(playdate.kButtonA) then
+                if playdate.buttonJustPressed(kr[4]) or playdate.buttonJustPressed(kr[6]) then
                     moveDirection = 1
-                elseif playdate.buttonJustPressed(playdate.kButtonLeft) then
+                elseif playdate.buttonJustPressed(kr[3]) then
                     moveDirection = -1
                 end
                 if not playdate.isCrankDocked() then
@@ -868,16 +874,28 @@ function playdate.update()
     end
 
     if gameStatus<-1 then
+        local kc = {1, 1, 2, 2, 3, 4, 3, 4, 5, 6}
         showCredits()
-        if playdate.buttonJustPressed(playdate.kButtonA) then
+        if kb and playdate.buttonJustPressed(kr[kc[ki]]) then
+            ki+=1
+            if ki==11 then
+                if oldGameStatus==1 then
+                    extraSound:play()
+                    lives += kc[1]
+                    drawLives()
+                end
+            end
+        end
+        if playdate.buttonJustPressed(kr[6]) then
             gameStatus = oldGameStatus
+            kb = false
         end
     else
         if gameStatus<0 then
             displayScore()
 
             local startMoving = false
-            if playdate.buttonJustPressed(playdate.kButtonRight) or playdate.buttonJustPressed(playdate.kButtonA) then
+            if playdate.buttonJustPressed(kr[4]) or playdate.buttonJustPressed(kr[6]) then
                 startMoving = true
             end
             if not playdate.isCrankDocked() then
