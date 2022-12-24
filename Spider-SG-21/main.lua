@@ -436,7 +436,6 @@ function clearSprites()
 
     lives = 0
     drawLives()
-    labelSprites[3]:setVisible(false)
     deadSprite:setVisible(false)
     carSprite:setVisible(false)
     boatSprite:setVisible(false)
@@ -577,7 +576,7 @@ function showCredits()
     gfx.drawTextAligned("*Spider SG-21 for Playdate*", 200, 38, kTextAlignment.center)
     gfx.drawTextInRect("Scan this QR code to access the official web page at", 40, 75, 170, 100, nil, nil, kTextAlignment.left)
     gfx.drawTextAligned("_kounch.itch.io_", 150, 140, kTextAlignment.center)
-    gfx.drawTextAligned("(C) Kounch 2022", 125, 182, kTextAlignment.center)
+    gfx.drawTextAligned("© Kounch 2022", 120, 182, kTextAlignment.center)
 end
 
 
