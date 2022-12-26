@@ -18,7 +18,7 @@ Select your desired language / Elija idioma:
 
 ### Features
 
-The original Spider (SG-21) was a LCD handheld electronic game made by Tronica. This project is a remake made from memories, photograps and video recordings of the original device, using Lua and the official [Playdate SDK](https://play.date/dev/).
+The original Spider (SG-21) was a LCD handheld electronic game made by Tronica. This project is a remake made from memories, photographs and video recordings of the original device, using Lua and the official [Playdate SDK](https://play.date/dev/).
 
 Please visit [the official website](https://kounch.itch.io) for installation instructions and more information.
 
