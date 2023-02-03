@@ -1,4 +1,4 @@
--- Copyright (c) 2022, kounch
+-- Copyright (c) 2022-2023, kounch
 -- All rights reserved.
 --
 -- SPDX-License-Identifier: BSD-2-Clause
@@ -17,13 +17,13 @@ local digitSprites = {}
 local labelSprites = {}
 local playerSprite = nil
 local liveSprites = {}
-local boySprites = {}
-local spiderSprites = {}
-local boatSprite = nil
-local carSprite = nil
+local rescueSprites = {}
+local enemySprites = {}
+local shipSprite = nil
+local originSprite = nil
 local playerId = 1
 local lives = 0
-local spiderIds = {4, 4, 4, 4, 4, 1}
+local enemyIds = {4, 4, 4, 4, 4, 1}
 
 print("Loading data...")
 
@@ -31,21 +31,23 @@ local positionsFile = playdate.file.open("positions.json")
 assert(positionsFile)
 local positionsTable = json.decodeFile(positionsFile)
 assert(positionsTable)
+local gameName = positionsTable.game
+local digitPosition = positionsTable.digitPosition
 local playerPositions = positionsTable.playerPositions
-local spiderPositions = positionsTable.spiderPositions
+local enemyPositions = positionsTable.enemyPositions
 
-local spiderMoves = {}
-local spiderClicks = {}
-local spiderDelay = 300
-local spiderPostDelay = 850
+local enemyMoves = {}
+local enemyClicks = {}
+local enemyDelay = 300
+local enemyPostDelay = 850
 local falseMove = 0
 local waitDelay = 50
-local boatDelay = 10000
+local shipDelay = 10000
 local killDelay = 50
 local clicksPositions = {}
 local score = 0
 local scoreCount = 0
-local webCount = 0
+local spcAtkCount = 0
 local speederStart = 300
 local speederStepper = 150
 local gameStatus = 0  -- 0-Menu, 1-Game (A or B), 2-Demo Mode, -1-Game Starting , -2-Credits
@@ -60,8 +62,8 @@ local ki = 1
 local kb = false
 
 -- Timers
-local boatTimer = nil
-local legTimers = {nil, nil, nil, nil, nil}
+local shipTimer = nil
+local atkTimers = {nil, nil, nil, nil, nil}
 local clickTimer = nil
 local demoTimer = nil
 
@@ -72,8 +74,8 @@ local labelTable = gfx.imagetable.new("Images/labels")
 assert(labelTable)
 local playerTable = gfx.imagetable.new("Images/player")
 assert(playerTable)
-local spiderTable = gfx.imagetable.new("Images/spider")
-assert(spiderTable)
+local enemyTable = gfx.imagetable.new("Images/enemy")
+assert(enemyTable)
 local extraTable = gfx.imagetable.new("Images/extra")
 assert(extraTable)
 local backgroundImage = gfx.image.new("Images/fg")
@@ -93,16 +95,16 @@ local endSound = playdate.sound.sampleplayer.new("gameover")
 -- Initialization
 --------------------
 
--- Setup all sprites and playdate menu. This is done only once
+-- Setup all sprites and Playdate menu. This is done only once
 function myGameSetUp()
     for i = 1,4  -- Score or time digits
     do
         digitSprites[i] = gfx.sprite.new(digitTable:getImage(1))
-        local digitX = 195+i*28
+        local digitX = digitPosition.x+i*28
         if i>2 then
             digitX+=11
         end
-        digitSprites[i]:moveTo(digitX,28)
+        digitSprites[i]:moveTo(digitX,digitPosition.y)
         digitSprites[i]:add()
     end
 
@@ -118,7 +120,7 @@ function myGameSetUp()
     labelSprites[3]:moveTo(158, 19)
 
     colonsSprite = gfx.sprite.new(digitTable:getImage(11))  -- Time colons sprite
-    colonsSprite:moveTo(271, 28)
+    colonsSprite:moveTo(digitPosition.x+76, digitPosition.y)
     colonsSprite:add()
 
     playerSprite = gfx.sprite.new(playerTable:getImage(playerPositions[playerId].id))  -- Player sprite
@@ -138,37 +140,37 @@ function myGameSetUp()
         liveSprites[i]:setVisible(false)
     end
 
-    for i = 1,3  -- Rescued boy sprites
+    for i = 1,3  -- Rescue sprites
     do
-        boySprites[i] = gfx.sprite.new(playerTable:getImage(playerPositions[15+i].id))
-        boySprites[i]:moveTo(playerPositions[15+i].x, playerPositions[15+i].y)
-        boySprites[i]:add()
-        boySprites[i]:setVisible(false)
+        rescueSprites[i] = gfx.sprite.new(playerTable:getImage(playerPositions[15+i].id))
+        rescueSprites[i]:moveTo(playerPositions[15+i].x, playerPositions[15+i].y)
+        rescueSprites[i]:add()
+        rescueSprites[i]:setVisible(false)
     end
 
-    carSprite = gfx.sprite.new(extraTable:getImage(1))  -- Jeep sprite
-    carSprite:moveTo(playerPositions[9].x, playerPositions[9].y)
-    carSprite:add()
-    carSprite:setVisible(false)
+    originSprite = gfx.sprite.new(extraTable:getImage(1))  -- Origin sprite
+    originSprite:moveTo(playerPositions[9].x, playerPositions[9].y)
+    originSprite:add()
+    originSprite:setVisible(true)
 
-    boatSprite = gfx.sprite.new(extraTable:getImage(2))  -- Rescue boat sprite
-    boatSprite:moveTo(playerPositions[10].x, playerPositions[10].y)
-    boatSprite:add()
-    boatSprite:setVisible(false)
+    shipSprite = gfx.sprite.new(extraTable:getImage(2))  -- Rescue ship sprite
+    shipSprite:moveTo(playerPositions[10].x, playerPositions[10].y)
+    shipSprite:add()
+    shipSprite:setVisible(false)
 
-    for i = 1,6  -- Spider legs, web and eyes sprites
+    for i = 1,6  -- Attacks and other enemy sprites
     do
-        spiderSprites[i] = {}
-        for j = 1,spiderIds[i]
+        enemySprites[i] = {}
+        for j = 1,enemyIds[i]
         do
-            spiderSprites[i][j] = gfx.sprite.new(spiderTable:getImage(spiderPositions[i][j].id))
-            spiderSprites[i][j]:moveTo(spiderPositions[i][j].x, spiderPositions[i][j].y)
-            spiderSprites[i][j]:add()
-            spiderSprites[i][j]:setVisible(false)
+            enemySprites[i][j] = gfx.sprite.new(enemyTable:getImage(enemyPositions[i][j].id))
+            enemySprites[i][j]:moveTo(enemyPositions[i][j].x, enemyPositions[i][j].y)
+            enemySprites[i][j]:add()
+            enemySprites[i][j]:setVisible(false)
         end
-        spiderIds[i] = 0
+        enemyIds[i] = 0
     end
-    spiderIds[6] = 1
+    enemyIds[6] = 1
 
 	-- Background image for all sprites
     gfx.sprite.setBackgroundDrawingCallback(
@@ -180,7 +182,7 @@ function myGameSetUp()
     setPlaydateMenu()
 end
 
--- Adds menu for playdate
+-- Adds menu for Playdate
 function setPlaydateMenu()
     local gameOptions = playdate.datastore.read()
     if gameOptions and gameOptions.crankSensitivity then
@@ -214,21 +216,21 @@ function updateSensitivity(value)
     playdate.datastore.write(gameOptions)
 end
 
--- Initialize spider legs and/or web spriteds and initialize (if needed) the recurring timers 
-function startLegs()
+-- Initialize enemy attack and initialize (if needed) the recurring timers 
+function startAttacks()
     for i=1,5
     do
-        spiderIds[i] = 0
+        enemyIds[i] = 0
         for j = 1,4
         do
-            spiderSprites[i][j]:setVisible(false)
+            enemySprites[i][j]:setVisible(false)
         end
-        if legTimers[i] ~= nil then
-            legTimers[i]:remove()
-            legTimers[i] = nil
+        if atkTimers[i] ~= nil then
+            atkTimers[i]:remove()
+            atkTimers[i] = nil
         end
-        if spiderMoves[i]>0 then
-            legTimers[i] = playdate.timer.performAfterDelay(spiderMoves[i], updateLeg, i)
+        if enemyMoves[i]>0 then
+            atkTimers[i] = playdate.timer.performAfterDelay(enemyMoves[i], updateAttack, i)
         else
             falseMove = i
         end
@@ -238,7 +240,7 @@ end
 -- Initialize the music (clicks) recurring timer
 function startClicks()
     local startDelay = clicksPositions[1]
-    spiderClicks = clicksPositions[2]
+    enemyClicks = clicksPositions[2]
 
     if clickTimer ~= nil then
         clickTimer:remove()
@@ -246,15 +248,15 @@ function startClicks()
     clickTimer = playdate.timer.performAfterDelay(startDelay, doClick, 1)
 end
 
--- Initialize and run (if needed) once timer for web
-function checkWeb()
-    if falseMove>0 and legTimers[falseMove]==nil and webCount >=50 then
-        webCount -= 50
-        local currentDelay = spiderDelay * falseMove
+-- Initialize and run (if needed) once timer for special (middle) attack
+function checkSpcAtk()
+    if falseMove>0 and atkTimers[falseMove]==nil and spcAtkCount >=50 then
+        spcAtkCount -= 50
+        local currentDelay = enemyDelay * falseMove
         if score>speederStart then
             currentDelay -= score // speederStepper * 50 * falseMove
         end
-        legTimers[falseMove] = playdate.timer.performAfterDelay(currentDelay, updateLeg, falseMove)
+        atkTimers[falseMove] = playdate.timer.performAfterDelay(currentDelay, updateAttack, falseMove)
     end
 end
 
@@ -270,23 +272,23 @@ function doClick(clickId)
     if score>speederStart then
         currentDelay -= score // speederStepper * 3
     end
-    currentDelay *= spiderClicks[clickId]
+    currentDelay *= enemyClicks[clickId]
 
     clickId += 1
-    if (clickId > #spiderClicks) then
+    if (clickId > #enemyClicks) then
         clickId = 1
     end
     clickTimer = playdate.timer.performAfterDelay(currentDelay, doClick, clickId)
 end
 
--- Update leg or web sprite and keep recurring timer if needed
-function updateLeg(legId)
+-- Update enemy attack sprite and keep recurring timer if needed
+function updateAttack(atkId)
     if gameStatus>0 then
-        spiderIds[legId] += 1
-        local currentDelay = spiderDelay
-        if spiderIds[legId]>4 then
-            spiderIds[legId] = 0
-            currentDelay = spiderPostDelay
+        enemyIds[atkId] += 1
+        local currentDelay = enemyDelay
+        if enemyIds[atkId]>4 then
+            enemyIds[atkId] = 0
+            currentDelay = enemyPostDelay
         end
         if score>speederStart then
             currentDelay -= score // speederStepper * 50
@@ -294,45 +296,45 @@ function updateLeg(legId)
 
         for j = 1,4
         do
-            if j>spiderIds[legId] then
-                spiderSprites[legId][j]:setVisible(false)
+            if j>enemyIds[atkId] then
+                enemySprites[atkId][j]:setVisible(false)
             else
-                spiderSprites[legId][j]:setVisible(true)
+                enemySprites[atkId][j]:setVisible(true)
             end
         end
 
-        if legId~=falseMove or spiderIds[legId]~=0 then
-            legTimers[legId] = playdate.timer.performAfterDelay(currentDelay, updateLeg, legId)
+        if atkId~=falseMove or enemyIds[atkId]~=0 then
+            atkTimers[atkId] = playdate.timer.performAfterDelay(currentDelay, updateAttack, atkId)
         else
-            legTimers[legId] = nil
+            atkTimers[atkId] = nil
         end
     end
 end
 
--- Update boat sprite and keep recurring timer
-function updateBoat()
-    if boatTimer ~= nil then
-        boatTimer:remove()
-        boatTimer = nil
+-- Update ship sprite and keep recurring timer
+function updateShip()
+    if shipTimer ~= nil then
+        shipTimer:remove()
+        shipTimer = nil
     end
-    currentDelay = boatDelay
-    local showBoat = not boatSprite:isVisible()
-    if showBoat and boatDelay<10000 then
-        currentDelay = 10000 - boatDelay
+    currentDelay = shipDelay
+    local showShip = not shipSprite:isVisible()
+    if showShip and shipDelay<10000 then
+        currentDelay = 10000 - shipDelay
     end
-    boatSprite:setVisible(showBoat)
-    boatTimer = playdate.timer.performAfterDelay(currentDelay, updateBoat)
+    shipSprite:setVisible(showShip)
+    shipTimer = playdate.timer.performAfterDelay(currentDelay, updateShip)
 end
 
--- Pause spider and demo timers
-function pauseSpider()
+-- Pause enemy and demo timers
+function pauseEnemy()
     if clickTimer ~= nil then
         clickTimer:pause()
     end
     for i=1,5
     do
-        if legTimers[i] ~= nil then
-            legTimers[i]:pause()
+        if atkTimers[i] ~= nil then
+            atkTimers[i]:pause()
         end
     end
     if demoTimer ~= nil then
@@ -340,15 +342,15 @@ function pauseSpider()
     end
 end
 
--- Resume spider and demo timers
-function startSpider()
+-- Resume enemy and demo timers
+function startEnemy()
     if clickTimer ~= nil then
         clickTimer:start()
     end
     for i=1,5
     do
-        if legTimers[i] ~= nil then
-            legTimers[i]:start()
+        if atkTimers[i] ~= nil then
+            atkTimers[i]:start()
         end
     end
     if demoTimer ~= nil then
@@ -356,7 +358,7 @@ function startSpider()
     end
 end
 
--- Timer to force player moving after inactivity next to jeep
+-- Timer to force player moving after inactivity next to origin
 function waitAndPush(counter)
     if playerId==1 then
         if counter>0 then
@@ -410,7 +412,7 @@ function displayTime()
         isVisible = false
     end
     colonsSprite:setVisible(isVisible)
-    spiderSprites[6][1]:setVisible(isVisible)
+    enemySprites[6][1]:setVisible(isVisible)
 end
 
 -- Shows the current score using the digit sprites
@@ -422,7 +424,7 @@ function displayScore()
     scoreDigits[4] = score%10
 
     colonsSprite:setVisible(false)
-    spiderSprites[6][1]:setVisible(true)  -- Show spider eyes
+    enemySprites[6][1]:setVisible(true)  -- Show enemy "eyes"
     for i = 1,4
     do
         digitSprites[i]:setVisible(false)
@@ -441,26 +443,26 @@ function clearSprites()
     lives = 0
     drawLives()
     deadSprite:setVisible(false)
-    carSprite:setVisible(false)
-    boatSprite:setVisible(false)
+    originSprite:setVisible(false)
+    shipSprite:setVisible(false)
     for i = 1,3
     do
-        boySprites[i]:setVisible(false)
+        rescueSprites[i]:setVisible(false)
     end
 
     for i = 1,5
     do
-        spiderIds[i] = 0
-        if legTimers[i] ~= nil then
-            legTimers[i]:remove()
-            legTimers[i] = nil
+        enemyIds[i] = 0
+        if atkTimers[i] ~= nil then
+            atkTimers[i]:remove()
+            atkTimers[i] = nil
         end
     end
     if demoTimer~= nil then
         demoTimer:remove()
         demoTimer = nil
     end
-    drawSpider()
+    drawEnemy()
 end
 
 -- Select image and move player sprite
@@ -469,7 +471,7 @@ function drawPlayer()
     playerSprite:moveTo(playerPositions[playerId].x, playerPositions[playerId].y)
 end
 
--- Show or hide the lives sprites in the jeep
+-- Show or hide the lives sprites in the origin
 function drawLives()
     for i = 1,2
     do
@@ -477,30 +479,30 @@ function drawLives()
     end
 end
 
--- Draw all spider legs and web sprites at once
-function drawSpider()
+-- Draw all enemy attack sprites at once
+function drawEnemy()
     for i = 1,5
     do
         for j = 1,4
         do
-            if j>spiderIds[i] then
-                spiderSprites[i][j]:setVisible(false)
+            if j>enemyIds[i] then
+                enemySprites[i][j]:setVisible(false)
             else
-                spiderSprites[i][j]:setVisible(true)
+                enemySprites[i][j]:setVisible(true)
             end
         end
     end
 end
 
--- Animate the rescued boy sprites
-function drawBoy(spriteId)
+-- Animate the rescue sprites
+function drawRescue(spriteId)
     if gameStatus>0 then
         if spriteId>1 then
-            boySprites[spriteId-1]:setVisible(false)
+            rescueSprites[spriteId-1]:setVisible(false)
         end
         if spriteId<4 then
-            boySprites[spriteId]:setVisible(true)
-            playdate.timer.performAfterDelay(100, drawBoy, spriteId+1)
+            rescueSprites[spriteId]:setVisible(true)
+            playdate.timer.performAfterDelay(100, drawRescue, spriteId+1)
         end
     end
 end
@@ -519,7 +521,7 @@ function drawMachete()
     end
 end
 
--- Animate the player hello action next to the jeep
+-- Animate the player hello action next to the origin
 function drawHello(spriteId)
     if gameStatus>0 then
         if playerId==1 then
@@ -577,10 +579,10 @@ function showCredits()
     bgImage = gfx.image.new("Images/qr")
     bgImage:draw(225,70)
 
-    gfx.drawTextAligned("*Spider SG-21 for Playdate*", 200, 38, kTextAlignment.center)
+    gfx.drawTextAligned(gameName, 200, 38, kTextAlignment.center)
     gfx.drawTextInRect("Scan this QR code to access the official web page at", 40, 75, 170, 100, nil, nil, kTextAlignment.left)
     gfx.drawTextAligned("_kounch.itch.io_", 150, 140, kTextAlignment.center)
-    gfx.drawTextAligned("© Kounch 2022", 120, 182, kTextAlignment.center)
+    gfx.drawTextAligned("© Kounch 2022-2023", 120, 182, kTextAlignment.center)
 end
 
 
@@ -588,13 +590,13 @@ end
 -- Other functions
 ---------------------
 
--- Start game moving player to the river and starting spider and sound
+-- Start game moving player and starting enemy and sound
 function doStart()
     if not pauseGame then
         gameStatus = 1
         playerId += 1
         drawPlayer()
-        startLegs()
+        startAttacks()
         playdate.timer.performAfterDelay(30,
             function ()
                 clickSound:play()
@@ -609,7 +611,7 @@ function checkScore(scoreIncrease)
     if gameStatus<2 then
         score += scoreIncrease
     end
-    webCount += scoreIncrease
+    spcAtkCount += scoreIncrease
 
     local scoreLimit = 300
     if scoreLimit>0 and score>scoreLimit-1 and score<scoreLimit+scoreIncrease then
@@ -631,7 +633,7 @@ function killPlayer()
         else
             waitAndPush(waitDelay)
         end
-        startSpider()
+        startEnemy()
         pauseGame = false
     end
 end
@@ -669,9 +671,9 @@ function resetGame()
         clickTimer:remove()
         clickTimer = nil
     end
-    if boatTimer ~= nil then
-        boatTimer:remove()
-        boatTimer = nil
+    if shipTimer ~= nil then
+        shipTimer:remove()
+        shipTimer = nil
     end
 
     clearSprites()
@@ -690,13 +692,13 @@ function startGame(gameMode)
     clearSprites()
     lives = 2
     drawLives()
-    carSprite:setVisible(true)
-    boatSprite:setVisible(false)
+    originSprite:setVisible(true)
+    shipSprite:setVisible(false)
     playerSprite:setVisible(true)
 
     score = 0
     scoreCount = 0
-    webCount = 0
+    spcAtkCount = 0
     pauseGame = true
     endGame = false
     moveDirection = 0
@@ -725,23 +727,23 @@ function startGame(gameMode)
         clicksPositions = {}
     end
 
-    spiderMoves = newPositions[r]
-    spiderDelay = newPositions[3]
-    spiderPostDelay = newPositions[4]
-    boatDelay = newPositions[5]
+    enemyMoves = newPositions[r]
+    enemyDelay = newPositions[3]
+    enemyPostDelay = newPositions[4]
+    shipDelay = newPositions[5]
     killDelay = newPositions[6]
 
-    if boatTimer ~= nil then
-        boatTimer:remove()
-        boatTimer = nil
+    if shipTimer ~= nil then
+        shipTimer:remove()
+        shipTimer = nil
     end
-    boatTimer = playdate.timer.performAfterDelay(boatDelay, updateBoat)
+    shipTimer = playdate.timer.performAfterDelay(shipDelay, updateShip)
 
     if gameMode==3 then
         pauseGame = false
         demoSense = -8
         demoTimer = playdate.timer.performAfterDelay(800, waitAndMove)
-        startLegs()
+        startAttacks()
     end
 end
 
@@ -813,7 +815,7 @@ function playdate.update()
                     playerId += 1
                     moved = true
                     if playerId==2 then
-                        checkWeb()
+                        checkSpcAtk()
                     end
                 else
                     drawMachete()
@@ -821,14 +823,14 @@ function playdate.update()
                     if scoreCount == 9 then
                         newScore = 18
                     end
-                    if boatSprite:isVisible() and scoreCount<10 then
+                    if shipSprite:isVisible() and scoreCount<10 then
                         if gameStatus<2 then
                             handSound:play()
                         end
                         checkScore(newScore)
                         scoreCount += 1
-                        checkWeb()
-                        drawBoy(1)
+                        checkSpcAtk()
+                        drawRescue(1)
                     end
                 end
             elseif moveDirection == -1 then
@@ -842,8 +844,8 @@ function playdate.update()
                     if playerId == 1 then
                         checkScore(2)
                         scoreCount = 0
-                        if score>50 and webCount>8 then
-                            webCount += 50
+                        if score>50 and spcAtkCount>8 then
+                            spcAtkCount += 50
                         end
                         drawHello(playerPositions[playerId].id)
                         if gameStatus<2 then
@@ -857,7 +859,7 @@ function playdate.update()
                 drawPlayer()
             end
 
-            if playerId>1 and spiderSprites[playerId-1][4]:isVisible() then  -- Is it a kill?
+            if playerId>1 and enemySprites[playerId-1][4]:isVisible() then  -- Is it a kill?
                 scoreCount = 0
                 pauseGame = true
                 if gameStatus<2 then
@@ -866,7 +868,7 @@ function playdate.update()
                 end
                 deadSprite:setImage(playerTable:getImage(playerPositions[playerId+9].id))
                 deadSprite:moveTo(playerPositions[playerId+9].x, playerPositions[playerId+9].y)
-                pauseSpider()
+                pauseEnemy()
                 drawKill(14)
                 playdate.timer.performAfterDelay(30 * killDelay, killPlayer)
             end
