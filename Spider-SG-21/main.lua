@@ -508,12 +508,12 @@ function drawRescue(spriteId)
 end
 
 -- Animate the player rescue action
-function drawMachete()
+function drawArm()
     if gameStatus>0 then
         if playerId == 6 then
             if playerSprite:getImage() == playerTable:getImage(playerPositions[playerId].id) then
                 playerSprite:setImage(playerTable:getImage(playerPositions[playerId].anim))
-                playdate.timer.performAfterDelay(100, drawMachete)
+                playdate.timer.performAfterDelay(100, drawArm)
             elseif playerSprite:getImage() == playerTable:getImage(playerPositions[playerId].anim) then
                 playerSprite:setImage(playerTable:getImage(playerPositions[playerId].id))
             end
@@ -818,7 +818,7 @@ function playdate.update()
                         checkSpcAtk()
                     end
                 else
-                    drawMachete()
+                    drawArm()
                     local newScore = 3
                     if scoreCount == 9 then
                         newScore = 18

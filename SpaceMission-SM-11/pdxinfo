@@ -1,0 +1,8 @@
+name=Space Mission SM-11
+author=kounch
+description=A remake of the Game & Watch game
+bundleID=com.kounch.spacemissionsm11
+version=1.0.0
+buildNumber=1
+imagePath=launcher/
+launchSoundPath=launcher_path/
