@@ -1,4 +1,9 @@
 {
+    "game": "*Spider SG-21 for Playdate*",
+    "digitPosition": {
+        "x": 195,
+        "y": 28       
+    },
     "playerPositions": [
         {
             "id": 1,
@@ -93,7 +98,7 @@
             "y": 209
         }
     ],
-    "spiderPositions": [
+    "enemyPositions": [
         [
             {
                 "id": 1,
