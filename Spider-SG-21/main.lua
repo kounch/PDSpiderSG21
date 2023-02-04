@@ -33,6 +33,7 @@ local positionsTable = json.decodeFile(positionsFile)
 assert(positionsTable)
 local gameName = positionsTable.game
 local digitPosition = positionsTable.digitPosition
+local labelPositions = positionsTable.labelPositions
 local playerPositions = positionsTable.playerPositions
 local enemyPositions = positionsTable.enemyPositions
 
@@ -108,16 +109,14 @@ function myGameSetUp()
         digitSprites[i]:add()
     end
 
-    local spriteX = 210
-    local spriteY = 198
     for i = 1,3  -- Game type and game over labels
     do
-        labelSprites[i] = gfx.sprite.new(labelTable:getImage(i))
-        labelSprites[i]:moveTo(spriteX, spriteY + i*16)
+        labelPos = labelPositions[i]
+        labelSprites[i] = gfx.sprite.new(labelTable:getImage(labelPos.id))
+        labelSprites[i]:moveTo(labelPos.x, labelPos.y)
         labelSprites[i]:add()
         labelSprites[i]:setVisible(false)
     end
-    labelSprites[3]:moveTo(158, 19)
 
     colonsSprite = gfx.sprite.new(digitTable:getImage(11))  -- Time colons sprite
     colonsSprite:moveTo(digitPosition.x+76, digitPosition.y)
