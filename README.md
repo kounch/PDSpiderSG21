@@ -1,4 +1,4 @@
-# Spider SG-21 and Space Mission SM-122 for Playdate
+# Spider SG-21 and Space Mission SM-11 for Playdate
 
 Copyright (c) 2022-2023, kounch
 
@@ -18,7 +18,7 @@ Select your desired language / Elija idioma:
 
 ### Features
 
-The original Spider (SG-21) and Space Mission (SM-122) were LCD handheld electronic games made by Tronica. This project is a remake made from memories, photographs and video recordings of the original devices, using [Lua](http://www.lua.org) and the official [Playdate SDK](https://play.date/dev/).
+The original Spider (SG-21) and Space Mission (SM-11) were LCD handheld electronic games made by Tronica. This project is a remake made from memories, photographs and video recordings of the original devices, using [Lua](http://www.lua.org) and the official [Playdate SDK](https://play.date/dev/).
 
 Please visit [the official website](https://kounch.itch.io) for installation instructions and more information.
 
@@ -28,7 +28,7 @@ Please visit [the official website](https://kounch.itch.io) for installation ins
 
 ### Características
 
-Spider (SG-21) y Space Mission (SM-12) eran juegos LCD electrónicos portátiles fabricados por Tronica. Este proyecto son unas reconstrucciones hechas a partir de recuerdos, fotografías y grabaciones de vídeo de los dispositivos originales, utilizando [Lua](http://www.lua.org) y el [Kit de desarrollo oficial de Playdate](https://play.date/dev/).
+Spider (SG-21) y Space Mission (SM-11) eran juegos LCD electrónicos portátiles fabricados por Tronica. Este proyecto son unas reconstrucciones hechas a partir de recuerdos, fotografías y grabaciones de vídeo de los dispositivos originales, utilizando [Lua](http://www.lua.org) y el [Kit de desarrollo oficial de Playdate](https://play.date/dev/).
 
 Por favor visite [la web oficial](https://kounch.itch.io) para obtener instrucciones de instalación y más información.
 
