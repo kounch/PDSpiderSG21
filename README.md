@@ -1,4 +1,4 @@
-# Spider SG-21 for Playdate
+# Spider SG-21 and Space Mission SM-122 for Playdate
 
 Copyright (c) 2022-2023, kounch
 
